@@ -59,7 +59,7 @@ internal fun getLineOffsets(text: String, vertical: Boolean): FloatArray {
     val avgCharWidth = if (nonSpaceCount > 0) totalNonSpaceWidth / nonSpaceCount else measurementPaint.textSize
 
     for (i in 0 until lineLen) {
-        if (text[i] == ' ' && i > 0 && text[i - 1] in listOf('。', '、', '！', '？', '!', '?', '…', '」', '』')) {
+        if (text[i] == ' ' && i > 0 && text[i - 1] in listOf('！', '？', '!', '?')) {
             sizes[i] = avgCharWidth
         }
     }
