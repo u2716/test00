@@ -224,7 +224,14 @@ private fun countDictionaries(context: android.content.Context): Int {
 @Composable
 private fun StatisticsCard() {
     val prefs = remember { Di.dictionaryPreferences }
-    val stats = remember { chimahon.dictionary.ui.StatisticsHelper.getStats(prefs) }
+    
+    // Observe the total lookups preference to trigger live updates
+    val totalLookups by prefs.statsTotalLookups().collectAsState()
+    
+    // Recalculate stats whenever the total lookups count changes
+    val stats = remember(totalLookups) { 
+        chimahon.dictionary.ui.StatisticsHelper.getStats(prefs) 
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
