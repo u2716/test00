@@ -219,8 +219,8 @@ private fun countDictionaries(context: android.content.Context): Int {
 }
 
 private fun ocrEngineLabel(engine: String): String = when (engine) {
-    "local" -> "Local (Lens)"
+    "local" -> "ScreenAI"
     "paddle" -> "Paddle OCR"
     "meiki" -> "Meiki OCR"
-    else -> "Cloud (Google Lens)"
+    else -> "GLens"
 }
