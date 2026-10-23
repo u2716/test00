@@ -45,6 +45,15 @@ internal fun getLineOffsets(text: String, vertical: Boolean): FloatArray {
         measurementPaint.getTextWidths(text, sizes)
     }
 
+    // Increase the visual weight of spaces inserted after punctuation to 
+    // push the following characters further forward (right) to match the image.
+    val SPACE_WEIGHT_MULTIPLIER = 2.0f
+    for (i in 0 until lineLen) {
+        if (text[i] == ' ' && i > 0 && text[i - 1] in listOf('。', '、', '！', '？', '!', '?', '…', '」', '』')) {
+            sizes[i] *= SPACE_WEIGHT_MULTIPLIER
+        }
+    }
+
     // Edge punctuation: a tight OCR line box bounds the ink, not the em slot. The first
     // and last characters' effective extent inside that box is therefore smaller when
     // they're brackets or trailing punctuation. Mid-line punctuation sits inside the
