@@ -7,6 +7,7 @@ package chimahon.ocr
 internal object OcrPreprocessor {
 
     private val COMPLEX_PUNCTUATION_REGEX = Regex("[!?\\.\\u2026\\u22EE\\uff0e\\uff1f\\uff01\\uff65]{2,}")
+    private val PUNCTUATION_SPACE_REGEX = Regex("([。、！？!?…」』])(?=[^\\s。、！？!?…」』])")
     private const val KATAKANA_MIDDLE_DOTS = "･･･"
 
     /**
@@ -35,6 +36,9 @@ internal object OcrPreprocessor {
         }
 
         // 2. Replace the specific katakana triple dot sequence
-        return flattened.replace(KATAKANA_MIDDLE_DOTS, "…")
+        val spaced = flattened.replace(KATAKANA_MIDDLE_DOTS, "…")
+        
+        // 3. Ensure a space after punctuation if it's missing (e.g. "？草薙" -> "？ 草薙")
+        return spaced.replace(PUNCTUATION_SPACE_REGEX, "$1 ")
     }
 }
