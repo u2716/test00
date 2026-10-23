@@ -45,14 +45,26 @@ internal fun getLineOffsets(text: String, vertical: Boolean): FloatArray {
         measurementPaint.getTextWidths(text, sizes)
     }
 
-    // Increase the visual weight of spaces inserted after punctuation to 
-    // push the following characters further forward (right) to match the image.
-    val SPACE_WEIGHT_MULTIPLIER = 2.0f
+    // Assign a full character width to spaces inserted after punctuation.
+    // We calculate the average width of the non-space characters in this line
+    // and apply it to the space, ensuring it takes exactly one "slot" in the math.
+    var totalNonSpaceWidth = 0f
+    var nonSpaceCount = 0
     for (i in 0 until lineLen) {
-        if (text[i] == ' ' && i > 0 && text[i - 1] in listOf('。', '、', '！', '？', '!', '?', '…', '」', '』')) {
-            sizes[i] *= SPACE_WEIGHT_MULTIPLIER
+        if (text[i] != ' ') {
+            totalNonSpaceWidth += sizes[i]
+            nonSpaceCount++
         }
     }
+    val avgCharWidth = if (nonSpaceCount > 0) totalNonSpaceWidth / nonSpaceCount else measurementPaint.textSize
+
+    for (i in 0 until lineLen) {
+        if (text[i] == ' ' && i > 0 && text[i - 1] in listOf('。', '、', '！', '？', '!', '?', '…', '」', '』')) {
+            sizes[i] = avgCharWidth
+        }
+    }
+
+
 
     // Edge punctuation: a tight OCR line box bounds the ink, not the em slot. The first
     // and last characters' effective extent inside that box is therefore smaller when
