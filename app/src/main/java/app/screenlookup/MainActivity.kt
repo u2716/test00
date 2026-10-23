@@ -221,43 +221,66 @@ private fun countDictionaries(context: android.content.Context): Int {
 }
 
 
+
+
 @Composable
 private fun StatisticsCard() {
     val prefs = remember { Di.dictionaryPreferences }
     
-    // Observe the total lookups preference to trigger live updates
+    // Observe total to trigger live updates
     val totalLookups by prefs.statsTotalLookups().collectAsState()
     
     // Recalculate stats whenever the total lookups count changes
-    val stats = remember(totalLookups) { 
-        chimahon.dictionary.ui.StatisticsHelper.getStats(prefs) 
+    val stats = remember(totalLookups) {
+        chimahon.dictionary.ui.StatisticsHelper.getStats(prefs)
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text("Statistics", style = MaterialTheme.typography.titleLarge)
+            
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                StatItem("Total", stats.total.toString())
-                StatItem("24h", stats.last24h.toString())
-                StatItem("7d", stats.last7d.toString())
-                StatItem("30d", stats.last30d.toString())
-                StatItem("1y", stats.last365d.toString())
+                StatItem("24h", stats.last24h, Modifier.weight(1f))
+                StatItem("7d", stats.last7d, Modifier.weight(1f))
+                StatItem("30d", stats.last30d, Modifier.weight(1f))
+                StatItem("1y", stats.last365d, Modifier.weight(1f))
+                StatItem("Total", stats.total, Modifier.weight(1f), isTotal = true)
             }
         }
     }
 }
 
 @Composable
-private fun StatItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun StatItem(label: String, value: Int, modifier: Modifier = Modifier, isTotal: Boolean = false) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = formatStatNumber(value),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = if (isTotal) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+private fun formatStatNumber(value: Int): String {
+    return when {
+        value >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", value / 1_000_000f)
+        value >= 1_000 -> String.format(java.util.Locale.US, "%.1fk", value / 1_000f)
+        else -> value.toString()
     }
 }
 
