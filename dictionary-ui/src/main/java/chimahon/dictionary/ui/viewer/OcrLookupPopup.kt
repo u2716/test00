@@ -344,6 +344,13 @@ fun OcrLookupPopup(
                 return
             }
 
+            // Record statistics for successful lookups
+            if (!isRecursive && orderedResults.isNotEmpty()) {
+                try {
+                    chimahon.dictionary.ui.StatisticsHelper.recordLookup(dictionaryPreferences)
+                } catch (_: Exception) {}
+            }
+
             // Create frame and push immediately — popup shows NOW
             val frame = LookupFrame(
                 id = UUID.randomUUID().toString(),

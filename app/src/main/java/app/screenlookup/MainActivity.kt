@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import app.screenlookup.screenlookup.ScreenLookupPermissionActivity
@@ -162,6 +163,7 @@ private fun HomeScreen(onOpenSettings: () -> Unit) {
                 }
             }
             StatusCard()
+            StatisticsCard()
         }
     }
 }
@@ -216,6 +218,40 @@ private fun countDictionaries(context: android.content.Context): Int {
         }
         .distinct()
         .size
+}
+
+
+@Composable
+private fun StatisticsCard() {
+    val prefs = remember { Di.dictionaryPreferences }
+    val stats = remember { chimahon.dictionary.ui.StatisticsHelper.getStats(prefs) }
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Statistics", style = MaterialTheme.typography.titleLarge)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                StatItem("Total", stats.total.toString())
+                StatItem("24h", stats.last24h.toString())
+                StatItem("7d", stats.last7d.toString())
+                StatItem("30d", stats.last30d.toString())
+                StatItem("1y", stats.last365d.toString())
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatItem(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 private fun ocrEngineLabel(engine: String): String = when (engine) {

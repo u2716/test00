@@ -328,6 +328,10 @@ class DictionaryPreferences(
 
     fun geminiCustomEndpoint() = preferenceStore.getString("pref_gemini_custom_endpoint", "")
 
+    fun statsTotalLookups() = preferenceStore.getInt("pref_stats_total_lookups", 0)
+    fun statsRecentTimestamps() = preferenceStore.getString("pref_stats_recent_timestamps", "")
+    fun statsDailyCounts() = preferenceStore.getString("pref_stats_daily_counts", "")
+
     fun geminiFontSize() = preferenceStore.getInt("pref_gemini_font_size", 16)
 
     fun geminiFontFamily() = preferenceStore.getString("pref_gemini_font_family", "")
