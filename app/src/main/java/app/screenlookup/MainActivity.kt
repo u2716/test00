@@ -34,8 +34,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.screenlookup.screenlookup.ScreenLookupPermissionActivity
 import app.screenlookup.screenlookup.ScreenLookupService
@@ -49,6 +49,7 @@ import app.screenlookup.settings.SettingsHubScreen
 import app.screenlookup.settings.SettingsOcrScreen
 import app.screenlookup.settings.SettingsScreenLookupScreen
 import app.screenlookup.ui.AppTheme
+import chimahon.dictionary.ui.collectAsState
 import java.io.File
 
 sealed interface Screen {
@@ -220,9 +221,6 @@ private fun countDictionaries(context: android.content.Context): Int {
         .size
 }
 
-
-
-
 @Composable
 private fun StatisticsCard() {
     val prefs = remember { Di.dictionaryPreferences }
@@ -244,7 +242,8 @@ private fun StatisticsCard() {
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
                 StatItem("24h", stats.last24h, Modifier.weight(1f))
                 StatItem("7d", stats.last7d, Modifier.weight(1f))
@@ -273,6 +272,13 @@ private fun StatItem(label: String, value: Int, modifier: Modifier = Modifier, i
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        if (isTotal) {
+            Text(
+                text = "Lookups",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
