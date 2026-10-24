@@ -91,15 +91,20 @@ fun SettingsAnkiScreen(onBack: () -> Unit) {
                 decks = bridge.deckNames()
                 models = bridge.modelNames()
                 
-                runCatching {
-                    bridge.ensureDefaultDeckName()
-                    bridge.ensureLapisModelName()
+                var updated = profileStore.getActiveProfile()
+                
+                if (updated.ankiDeck.isBlank()) {
+                    runCatching { bridge.ensureDefaultDeckName() }
+                    updated = updated.copy(ankiDeck = LapisPreset.DEFAULT_DECK_NAME)
+                }
+                if (updated.ankiModel.isBlank()) {
+                    runCatching { bridge.ensureLapisModelName() }
+                    updated = updated.copy(ankiModel = LapisPreset.MODEL_NAME)
+                }
+                if (LapisPreset.isBlankFieldMap(updated.ankiFieldMap)) {
+                    updated = updated.copy(ankiFieldMap = LapisPreset.defaultFieldMapJson)
                 }
                 
-                var updated = profileStore.getActiveProfile()
-                if (updated.ankiDeck.isBlank()) updated = updated.copy(ankiDeck = LapisPreset.DEFAULT_DECK_NAME)
-                if (updated.ankiModel.isBlank()) updated = updated.copy(ankiModel = LapisPreset.MODEL_NAME)
-                if (LapisPreset.isBlankFieldMap(updated.ankiFieldMap)) updated = updated.copy(ankiFieldMap = LapisPreset.defaultFieldMapJson)
                 profileStore.updateProfile(updated)
                 profile = updated
                 
