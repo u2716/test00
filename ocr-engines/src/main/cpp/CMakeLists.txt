@@ -31,15 +31,6 @@ set(MNN_OPENCL                  OFF CACHE BOOL "")
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/third-party/MNN build-mnn)
 
-# Bulletproof strip: AGP forces -g symbols and often skips stripping.
-# This forces the NDK strip tool to run directly on libMNN.so.
-if (TARGET MNN)
-    add_custom_command(TARGET MNN POST_BUILD
-        COMMAND ${CMAKE_STRIP} -s $<TARGET_FILE:MNN>
-        COMMENT "Stripping libMNN.so to reduce APK size"
-    )
-endif()
-
 # --------------------------------------------------------------------------
 # MNN OCR JNI shim (Meiki OCR via MNN)
 # --------------------------------------------------------------------------
