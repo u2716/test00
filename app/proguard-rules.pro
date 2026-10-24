@@ -5,10 +5,10 @@
 -keepattributes Signature
 -keepattributes *Annotation*
 
-# ONNX Runtime JNI keep rules (Meiki OCR, wired in M4). Without these
-# ai.onnxruntime.TensorInfo and friends are renamed/stripped and the first
-# OrtSession.run() aborts with "JNI DETECTED ERROR: mid == null".
--keep class ai.onnxruntime.** { *; }
--keepclassmembers class ai.onnxruntime.** { *; }
--keepclasseswithmembers class ai.onnxruntime.** { <init>(...); }
--dontwarn ai.onnxruntime.**
+# MNN OCR JNI keep rules. The native layer resolves
+# chimahon.local.ocr.mnn.MnnInterpreter by hardcoded name; R8 must not
+# rename or strip it.
+-keep class chimahon.local.ocr.mnn.** { *; }
+-keepclasseswithmembernames class * {
+    native <methods>;
+}

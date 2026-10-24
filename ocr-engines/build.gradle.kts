@@ -52,5 +52,6 @@ kotlin {
 dependencies {
     implementation(project(":ocr"))
     implementation(libs.kotlinx.coroutines.android)
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.30.0")
+    // MNN is built from the third-party/MNN git submodule via CMake.
+    // See ocr-engines/src/main/cpp/CMakeLists.txt.
 }

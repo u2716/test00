@@ -151,9 +151,9 @@ class ModelDownloader(
     private fun requiredMeikiFiles(): List<File> {
         val root = File(context.filesDir, MEIKI_DIR)
         return listOf(
-            File(root, "meiki.text.detect.v0.1.960x544.onnx"),
-            File(root, "meiki.text.rec.v0.960x32.onnx"),
-            File(root, "meiki.text.rec.v0.vertical.32x480.onnx"),
+            File(root, "det.mnn"),
+            File(root, "rec_horizontal.mnn"),
+            File(root, "rec_vertical.mnn"),
         )
     }
 

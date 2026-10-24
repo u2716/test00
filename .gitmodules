@@ -1,3 +1,6 @@
 [submodule "dictionary/src/main/cpp/hoshidicts"]
 	path = dictionary/src/main/cpp/hoshidicts
 	url = https://github.com/Chimahon/hoshidicts
+[submodule "ocr-engines/src/main/cpp/third-party/MNN"]
+	path = ocr-engines/src/main/cpp/third-party/MNN
+	url = https://github.com/alibaba/MNN

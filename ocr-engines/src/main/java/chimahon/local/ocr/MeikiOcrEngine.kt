@@ -4,9 +4,9 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.os.SystemClock
 import android.util.Log
-import ai.onnxruntime.OnnxTensor
-import ai.onnxruntime.OrtEnvironment
-import ai.onnxruntime.OrtSession
+import chimahon.local.ocr.mnn.MnnInterpreter
+import chimahon.local.ocr.mnn.MnnInterpreter.NamedTensor
+import chimahon.local.ocr.mnn.MnnInterpreter.TensorData
 import chimahon.ocr.EngineChar
 import chimahon.ocr.EngineLine
 import chimahon.ocr.NormalizedBBox
@@ -67,10 +67,9 @@ class MeikiOcrEngine(context: Context) : chimahon.ocr.OcrEngine, Closeable {
     private val lock = Any()
     private val inferPermits = Semaphore(INFER_PERMITS)
 
-    private var env: OrtEnvironment? = null
-    private var detSession: OrtSession? = null
-    private var recSession: OrtSession? = null
-    private var vrecSession: OrtSession? = null
+    private var detInterp: MnnInterpreter? = null
+    private var recInterp: MnnInterpreter? = null
+    private var vrecInterp: MnnInterpreter? = null
 
     private val deviceThreads: Int by lazy {
         detectPerformanceCores().coerceIn(1, 4)
@@ -96,25 +95,20 @@ class MeikiOcrEngine(context: Context) : chimahon.ocr.OcrEngine, Closeable {
 
         val start = SystemClock.elapsedRealtime()
         try {
-            val environment = OrtEnvironment.getEnvironment()
-            val opts = OrtSession.SessionOptions().apply {
-                setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-                setIntraOpNumThreads(deviceThreads)
-            }
-            detSession = environment.createSession(detFile.absolutePath, opts)
-            recSession = environment.createSession(recFile.absolutePath, opts)
-            vrecSession = environment.createSession(vrecFile.absolutePath, opts)
-            env = environment
+            MnnInterpreter.ensureLibLoaded()
+            detInterp = MnnInterpreter.fromFile(detFile.absolutePath, deviceThreads)
+            recInterp = MnnInterpreter.fromFile(recFile.absolutePath, deviceThreads)
+            vrecInterp = MnnInterpreter.fromFile(vrecFile.absolutePath, deviceThreads)
             isInitialized = true
-            Log.i(TAG, "Meiki OCR initialized in ${SystemClock.elapsedRealtime() - start}ms")
+            Log.i(TAG, "Meiki OCR (MNN) initialized in ${SystemClock.elapsedRealtime() - start}ms")
         } catch (e: Throwable) {
             Log.e(TAG, "Meiki OCR init failed", e)
-            runCatching { detSession?.close() }
-            runCatching { recSession?.close() }
-            runCatching { vrecSession?.close() }
-            detSession = null
-            recSession = null
-            vrecSession = null
+            runCatching { detInterp?.close() }
+            runCatching { recInterp?.close() }
+            runCatching { vrecInterp?.close() }
+            detInterp = null
+            recInterp = null
+            vrecInterp = null
             return false
         }
         return true
@@ -129,12 +123,12 @@ class MeikiOcrEngine(context: Context) : chimahon.ocr.OcrEngine, Closeable {
         try {
             synchronized(lock) {
                 if (isInitialized) {
-                    runCatching { detSession?.close() }
-                    runCatching { recSession?.close() }
-                    runCatching { vrecSession?.close() }
-                    detSession = null
-                    recSession = null
-                    vrecSession = null
+                    runCatching { detInterp?.close() }
+                    runCatching { recInterp?.close() }
+                    runCatching { vrecInterp?.close() }
+                    detInterp = null
+                    recInterp = null
+                    vrecInterp = null
                     isInitialized = false
                     Log.i(TAG, "Meiki OCR destroyed")
                 }
@@ -207,7 +201,7 @@ class MeikiOcrEngine(context: Context) : chimahon.ocr.OcrEngine, Closeable {
     )
 
     private fun runDetection(bitmap: Bitmap): List<DetBox> {
-        val e = env ?: return emptyList()
+        val det = detInterp ?: return emptyList()
         val wOrig = bitmap.width
         val hOrig = bitmap.height
 
@@ -225,64 +219,43 @@ class MeikiOcrEngine(context: Context) : chimahon.ocr.OcrEngine, Closeable {
 
         val chw = buildChwTensor(pixels, wResized, hResized, INPUT_DET_WIDTH, INPUT_DET_HEIGHT)
 
-        val imagesTensor = OnnxTensor.createTensor(
-            e,
-            FloatBuffer.wrap(chw),
-            longArrayOf(1L, 3L, INPUT_DET_HEIGHT.toLong(), INPUT_DET_WIDTH.toLong()),
-        )
-        val sizesArr = longArrayOf(
-            (INPUT_DET_WIDTH / scale).roundToInt().toLong(),
-            (INPUT_DET_HEIGHT / scale).roundToInt().toLong(),
-        )
-        val sizesTensor = OnnxTensor.createTensor(
-            e,
-            LongBuffer.wrap(sizesArr),
-            longArrayOf(1L, 2L),
-        )
-
-        val session = detSession ?: return emptyList()
-        val inputNames = session.inputNames.toList()
-        if (inputNames.size < 2) {
-            imagesTensor.close()
-            sizesTensor.close()
-            Log.e(TAG, "detector has ${inputNames.size} inputs, expected 2")
-            return emptyList()
+        val sizesW = (INPUT_DET_WIDTH / scale).roundToInt()
+        val sizesH = (INPUT_DET_HEIGHT / scale).roundToInt()
+        val outs = det.run(listOf(
+            NamedTensor(
+                "images",
+                intArrayOf(1, 3, INPUT_DET_HEIGHT, INPUT_DET_WIDTH),
+                TensorData.Floats(chw),
+            ),
+            NamedTensor(
+                "orig_target_sizes",
+                intArrayOf(1, 2),
+                TensorData.Ints(intArrayOf(sizesW, sizesH)),
+            ),
+        ))
+        val boxesFlat = (outs.firstOrNull {
+            it.data is TensorData.Floats && it.shape.size >= 3
+        }?.data as? TensorData.Floats)?.data ?: return emptyList()
+        val scoresFlat = (outs.firstOrNull {
+            it.data is TensorData.Floats && it.shape.size < 3
+        }?.data as? TensorData.Floats)?.data ?: return emptyList()
+        val n = scoresFlat.size
+        if (boxesFlat.size < n * 4) return emptyList()
+        val out = ArrayList<DetBox>(n)
+        val maxX = wOrig.toFloat()
+        val maxY = hOrig.toFloat()
+        for (i in 0 until n) {
+            val conf = scoresFlat[i]
+            if (conf < DET_CONF_THRESHOLD) continue
+            val b = i * 4
+            val x1 = boxesFlat[b].coerceIn(0f, maxX).toInt()
+            val y1 = boxesFlat[b + 1].coerceIn(0f, maxY).toInt()
+            val x2 = boxesFlat[b + 2].coerceIn(0f, maxX).toInt()
+            val y2 = boxesFlat[b + 3].coerceIn(0f, maxY).toInt()
+            if (x2 > x1 && y2 > y1) out += DetBox(x1, y1, x2, y2, conf)
         }
-
-        try {
-            val inputs = mapOf(
-                inputNames[0] to imagesTensor,
-                inputNames[1] to sizesTensor,
-            )
-            val result = session.run(inputs)
-            result.use { r ->
-                // Python: `_, boxes, scores = session.run(...)`
-                val boxesT = r.get(1) as OnnxTensor
-                val scoresT = r.get(2) as OnnxTensor
-                val boxesFlat = tensorToFloats(boxesT) ?: return emptyList()
-                val scoresFlat = tensorToFloats(scoresT) ?: return emptyList()
-                val n = scoresFlat.size
-                if (boxesFlat.size < n * 4) return emptyList()
-                val out = ArrayList<DetBox>(n)
-                val maxX = wOrig.toFloat()
-                val maxY = hOrig.toFloat()
-                for (i in 0 until n) {
-                    val conf = scoresFlat[i]
-                    if (conf < DET_CONF_THRESHOLD) continue
-                    val b = i * 4
-                    val x1 = boxesFlat[b].coerceIn(0f, maxX).toInt()
-                    val y1 = boxesFlat[b + 1].coerceIn(0f, maxY).toInt()
-                    val x2 = boxesFlat[b + 2].coerceIn(0f, maxX).toInt()
-                    val y2 = boxesFlat[b + 3].coerceIn(0f, maxY).toInt()
-                    if (x2 > x1 && y2 > y1) out += DetBox(x1, y1, x2, y2, conf)
-                }
-                out.sortBy { it.y1 }
-                return out
-            }
-        } finally {
-            imagesTensor.close()
-            sizesTensor.close()
-        }
+        out.sortBy { it.y1 }
+        return out
     }
 
     // ────────────────────────── crop preprocessing ──────────────────────────
@@ -393,146 +366,32 @@ class MeikiOcrEngine(context: Context) : chimahon.ocr.OcrEngine, Closeable {
     )
 
     private fun runRecognitionSingle(crop: FloatArray, isVertical: Boolean): RecOutput? {
-        val e = env ?: return null
+        val interp = (if (isVertical) vrecInterp else recInterp) ?: return null
         val h = if (isVertical) INPUT_VREC_HEIGHT else INPUT_REC_HEIGHT
         val w = if (isVertical) INPUT_VREC_WIDTH else INPUT_REC_WIDTH
 
-        val imagesTensor = OnnxTensor.createTensor(
-            e,
-            FloatBuffer.wrap(crop),
-            longArrayOf(1L, 3L, h.toLong(), w.toLong()),
-        )
-        val sizesTensor = OnnxTensor.createTensor(
-            e,
-            LongBuffer.wrap(longArrayOf(w.toLong(), h.toLong())),
-            longArrayOf(1L, 2L),
-        )
-
-        val session = if (isVertical) vrecSession else recSession
-        if (session == null) {
-            imagesTensor.close()
-            sizesTensor.close()
-            return null
-        }
-        val inputNames = session.inputNames.toList()
-        if (inputNames.size < 2) {
-            imagesTensor.close()
-            sizesTensor.close()
-            return null
-        }
-
-        try {
-            val inputs = mapOf(
-                inputNames[0] to imagesTensor,
-                inputNames[1] to sizesTensor,
-            )
-            val result = session.run(inputs)
-            result.use { r ->
-                val labelsT = r.get(0) as OnnxTensor
-                val boxesT = r.get(1) as OnnxTensor
-                val scoresT = r.get(2) as OnnxTensor
-                return parseRecOutput(labelsT, boxesT, scoresT)
-            }
-        } finally {
-            imagesTensor.close()
-            sizesTensor.close()
-        }
-    }
-
-    private fun parseRecOutput(
-        labelsT: OnnxTensor,
-        boxesT: OnnxTensor,
-        scoresT: OnnxTensor,
-    ): RecOutput {
-        val scoresFlat = tensorToFloats(scoresT)
-            ?: return RecOutput(0, IntArray(0), FloatArray(0), FloatArray(0))
-        val boxesFlat = tensorToFloats(boxesT)
-            ?: return RecOutput(0, IntArray(0), FloatArray(0), FloatArray(0))
-        val labelsFlat = tensorToInts(labelsT)
-            ?: return RecOutput(0, IntArray(0), FloatArray(0), FloatArray(0))
-        return RecOutput(scoresFlat.size, labelsFlat, boxesFlat, scoresFlat)
-    }
-
-    // ---- ONNX Runtime tensor readers ----
-    //
-    // getValue() returns the tensor contents as nested Java primitive arrays
-    // matching the tensor shape (FLOAT [1,N,4] -> float[][][], INT64 [1,N] ->
-    // long[][]). It is stable across ONNX Runtime versions, unlike the
-    // getFloatBuffer()/getLongBuffer()/getIntBuffer() accessors whose return
-    // type changed in 1.30.0 and broke Kotlin interop. We flatten the nested
-    // arrays into contiguous 1D arrays.
-
-    private fun tensorToFloats(t: OnnxTensor): FloatArray? = try {
-        collectFloats(t.value)
-    } catch (_: Throwable) {
-        null
-    }
-
-    private fun collectFloats(v: Any?): FloatArray? = when (v) {
-        null -> null
-        is FloatArray -> v
-        is java.nio.FloatBuffer -> {
-            val dup = v.duplicate()
-            val out = FloatArray(dup.remaining())
-            dup.get(out)
-            out
-        }
-        is Array<*> -> {
-            val pieces = ArrayList<FloatArray>(v.size)
-            var total = 0
-            for (item in v) {
-                val sub = collectFloats(item) ?: return null
-                pieces += sub
-                total += sub.size
-            }
-            val out = FloatArray(total)
-            var pos = 0
-            for (p in pieces) {
-                System.arraycopy(p, 0, out, pos, p.size)
-                pos += p.size
-            }
-            out
-        }
-        else -> null
-    }
-
-    private fun tensorToInts(t: OnnxTensor): IntArray? = try {
-        collectInts(t.value)
-    } catch (_: Throwable) {
-        null
-    }
-
-    private fun collectInts(v: Any?): IntArray? = when (v) {
-        null -> null
-        is IntArray -> v
-        is LongArray -> {
-            val out = IntArray(v.size)
-            for (i in v.indices) out[i] = v[i].toInt()
-            out
-        }
-        is FloatArray -> {
-            val out = IntArray(v.size)
-            for (i in v.indices) out[i] = v[i].toInt()
-            out
-        }
-        is Array<*> -> {
-            val pieces = ArrayList<IntArray>(v.size)
-            var total = 0
-            for (item in v) {
-                val sub = collectInts(item) ?: return null
-                pieces += sub
-                total += sub.size
-            }
-            val out = IntArray(total)
-            var pos = 0
-            for (p in pieces) {
-                System.arraycopy(p, 0, out, pos, p.size)
-                pos += p.size
-            }
-            out
-        }
-        is Number -> intArrayOf(v.toInt())
-        else -> null
+        val outs = interp.run(listOf(
+            NamedTensor(
+                "images",
+                intArrayOf(1, 3, h, w),
+                TensorData.Floats(crop),
+            ),
+            NamedTensor(
+                "orig_target_sizes",
+                intArrayOf(1, 2),
+                TensorData.Ints(intArrayOf(w, h)),
+            ),
+        ))
+        val labelsArr = (outs.firstOrNull {
+            it.data is TensorData.Ints
+        }?.data as? TensorData.Ints)?.data ?: return null
+        val boxesArr = (outs.firstOrNull {
+            it.data is TensorData.Floats && it.shape.size >= 3
+        }?.data as? TensorData.Floats)?.data ?: return null
+        val scoresArr = (outs.firstOrNull {
+            it.data is TensorData.Floats && it.shape.size < 3
+        }?.data as? TensorData.Floats)?.data ?: return null
+        return RecOutput(scoresArr.size, labelsArr, boxesArr, scoresArr)
     }
 
     // ────────────────────────── per-group processing ──────────────────────────
@@ -749,9 +608,9 @@ class MeikiOcrEngine(context: Context) : chimahon.ocr.OcrEngine, Closeable {
         private const val MODEL_DIR = "meiki_ocr"
 
         // Must match the filenames uploaded to chimahon-local-models/meiki_ocr/
-        private const val DET_MODEL = "meiki.text.detect.v0.1.960x544.onnx"
-        private const val REC_MODEL = "meiki.text.rec.v0.960x32.onnx"
-        private const val VREC_MODEL = "meiki.text.rec.v0.vertical.32x480.onnx"
+        private const val DET_MODEL = "det.mnn"
+        private const val REC_MODEL = "rec_horizontal.mnn"
+        private const val VREC_MODEL = "rec_vertical.mnn"
 
         // Detection input dims (from ocr.py)
         private const val INPUT_DET_WIDTH = 960
