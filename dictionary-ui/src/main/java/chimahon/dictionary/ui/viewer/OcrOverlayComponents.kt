@@ -228,6 +228,19 @@ private fun DrawScope.drawMatchHighlight(
     val overlapL = maxOf(absStart, orderedLineStart)
     val overlapR = minOf(absEnd, lineEnd)
 
+    val charBoxes = block.lineChars?.getOrNull(geoIndex)
+    if (charBoxes != null && charBoxes.size == lineLen) {
+        drawPerCharMatchHighlight(
+            charBoxes = charBoxes,
+            startIndex = (overlapL - orderedLineStart).coerceIn(0, lineLen),
+            endIndex = (overlapR - orderedLineStart).coerceIn(0, lineLen),
+            boxScaleX = boxScaleX,
+            boxScaleY = boxScaleY,
+            highlightColor = highlightColor,
+        )
+        return
+    }
+
     // Per-line orientation: a horizontal line inside a vertical block (or vice versa)
     // must be highlighted along its own reading axis, matching how taps are resolved.
     val lineVertical = OcrHitTester.isLineVertical(
@@ -349,4 +362,39 @@ fun centerCropToAspect(bitmap: Bitmap, aspectX: Int, aspectY: Int): Bitmap {
     val left = (bw - cropW) / 2
     val top = (bh - cropH) / 2
     return Bitmap.createBitmap(bitmap, left, top, cropW, cropH)
+}
+
+private fun DrawScope.drawPerCharMatchHighlight(
+    charBoxes: List<OcrCharBox>,
+    startIndex: Int,
+    endIndex: Int,
+    boxScaleX: Float,
+    boxScaleY: Float,
+    highlightColor: Color,
+) {
+    if (startIndex >= endIndex) return
+
+    var minL = Float.MAX_VALUE
+    var minT = Float.MAX_VALUE
+    var maxR = -Float.MAX_VALUE
+    var maxB = -Float.MAX_VALUE
+    for (i in startIndex until endIndex) {
+        val b = charBoxes[i].bbox
+        if (b.left < minL) minL = b.left.toFloat()
+        if (b.top < minT) minT = b.top.toFloat()
+        if (b.right > maxR) maxR = b.right.toFloat()
+        if (b.bottom > maxB) maxB = b.bottom.toFloat()
+    }
+    if (minL >= maxR || minT >= maxB) return
+
+    val cx = (minL + maxR) / 2f
+    val cy = (minT + maxB) / 2f
+    val w = (maxR - minL).coerceAtLeast(0.001f) * boxScaleX
+    val h = (maxB - minT).coerceAtLeast(0.001f) * boxScaleY
+
+    drawRect(
+        color = highlightColor,
+        topLeft = Offset((cx - w / 2f) * size.width, (cy - h / 2f) * size.height),
+        size = Size(w * size.width, h * size.height),
+    )
 }

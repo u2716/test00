@@ -152,6 +152,7 @@ object OwOCRMerger {
         val hasJpText: Boolean,
         val hasKanji: Boolean,
         val rotation: Double = 0.0,
+        val chars: List<EngineChar>? = null,
         var isFurigana: Boolean = false,
         var paragraphId: Int? = null,
     )
@@ -176,6 +177,7 @@ object OwOCRMerger {
                 hasJpText = line.hasJpText,
                 hasKanji = line.hasKanji,
                 rotation = line.rotation,
+                chars = line.chars,
             )
         }
     }
@@ -343,12 +345,15 @@ object OwOCRMerger {
             filtered.map { it.bbox.rotation }.average()
         } else 0.0
 
+        val constituentCharsList: List<List<EngineChar>?>? =
+            if (filtered.any { it.chars != null }) filtered.map { it.chars } else null
         val paraObj = OcrResult(
             text = textContent,
             tightBoundingBox = BoundingBox(x = left, y = top, width = right - left, height = bottom - top, rotation = Math.toDegrees(avgRotation)),
             isMerged = filtered.size > 1,
             forcedOrientation = forcedOrientation,
             constituentBoxes = filtered.map { it.bbox.toBoundingBox() },
+            constituentChars = constituentCharsList,
         )
 
         val largestLineCharSize = if (isVertical) {
@@ -421,12 +426,15 @@ object OwOCRMerger {
             else -> WritingDirection.LTR
         }
 
+        val constituentCharsList: List<List<EngineChar>?>? =
+            if (ordered.any { it.chars != null }) ordered.map { it.chars } else null
         val paraObj = OcrResult(
             text = textContent,
             tightBoundingBox = BoundingBox(x = left, y = top, width = right - left, height = bottom - top),
             isMerged = ordered.size > 1,
             forcedOrientation = forcedOrientation,
             constituentBoxes = ordered.map { it.bbox.toBoundingBox() },
+            constituentChars = constituentCharsList,
         )
 
         val largestLineCharSize = if (isVertical) {
@@ -526,6 +534,10 @@ object OwOCRMerger {
         }
         val charSize = totalDim / mergedText.length.coerceAtLeast(1)
 
+        val allHaveChars = sorted.all { it.chars != null && it.chars!!.size == it.text.length }
+        val mergedCharsRaw = if (allHaveChars) sorted.flatMap { it.chars!! } else emptyList()
+        val mergedChars = if (mergedCharsRaw.size == mergedText.length) mergedCharsRaw else null
+
         return LineDict(
             text = mergedText,
             bbox = NormalizedBBox(left, top, right, bottom),
@@ -535,6 +547,7 @@ object OwOCRMerger {
             hasJpText = sorted.any { it.hasJpText },
             hasKanji = sorted.any { it.hasKanji },
             rotation = sorted[0].rotation, // Take rotation from first line in group
+            chars = mergedChars,
         )
     }
 

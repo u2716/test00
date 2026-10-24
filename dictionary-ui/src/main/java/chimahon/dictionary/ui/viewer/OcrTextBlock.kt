@@ -1,9 +1,15 @@
 package chimahon.dictionary.ui.viewer
 
 import androidx.compose.ui.geometry.Rect
+import chimahon.ocr.NormalizedBBox
 import chimahon.ocr.extractOcrLookupText
 import chimahon.ocr.extractWholeWord
 import chimahon.ocr.isOcrLookupStartChar
+
+data class OcrCharBox(
+    val char: Char,
+    val bbox: NormalizedBBox,
+)
 
 data class OcrTextBlock(
     val xmin: Float,
@@ -14,6 +20,7 @@ data class OcrTextBlock(
     val vertical: Boolean = false,
     val lineGeometries: List<OcrLineGeometry>? = null,
     val language: String = "",
+    val lineChars: List<List<OcrCharBox>?>? = null,
 )
 
 data class OcrLineGeometry(

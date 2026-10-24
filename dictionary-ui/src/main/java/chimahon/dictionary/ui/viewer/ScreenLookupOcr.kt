@@ -136,6 +136,14 @@ fun List<OcrResult>.toScreenLookupBlocks(language: String): List<OcrTextBlock> {
         if (xmax <= xmin || ymax <= ymin || lines.isEmpty()) {
             null
         } else {
+            val lineChars = result.constituentChars
+                ?.takeIf { it.size == lines.size }
+                ?.mapIndexed { idx, perLine ->
+                    val expectedLen = lines[idx].length
+                    perLine?.takeIf { it.size == expectedLen }?.map { c ->
+                        OcrCharBox(char = c.char, bbox = c.bbox)
+                    }
+                }
             OcrTextBlock(
                 xmin = xmin,
                 ymin = ymin,
@@ -153,6 +161,7 @@ fun List<OcrResult>.toScreenLookupBlocks(language: String): List<OcrTextBlock> {
                     )
                 },
                 language = language,
+                lineChars = lineChars,
             )
         }
     }
@@ -212,6 +221,11 @@ internal fun OcrTextBlock.screenLookupCharOffset(tapX: Float, tapY: Float, lineI
                 else -> geometries.indices.firstOrNull { tapInLineBand(it, tapX, tapY) }
             }
             if (targetLine != null) {
+                val charBoxes = lineChars?.getOrNull(targetLine)
+                if (charBoxes != null && charBoxes.size == lines[targetLine].length) {
+                    return charOffsetFromCharBoxes(targetLine, tapX, tapY, charBoxes, orderedStarts)
+                        .coerceIn(0, orderedFullText.length - 1)
+                }
                 return charOffsetInLine(targetLine, tapX, tapY, orderedStarts)
                     .coerceIn(0, orderedFullText.length - 1)
             }
@@ -224,4 +238,52 @@ internal fun OcrTextBlock.screenLookupCharOffset(tapX: Float, tapY: Float, lineI
     val localY = (tapY - ymin).coerceIn(0f, blockHeight)
     return uniformCharOffset(this, localX, localY, blockWidth, blockHeight)
         .coerceIn(0, fullText.lastIndex.coerceAtLeast(0))
+}
+
+private fun OcrTextBlock.charOffsetFromCharBoxes(
+    lineIndex: Int,
+    tapX: Float,
+    tapY: Float,
+    charBoxes: List<OcrCharBox>,
+    orderedStarts: IntArray,
+): Int {
+    if (charBoxes.isEmpty()) return orderedStarts[lineIndex]
+
+    var bestIdx = -1
+    var bestArea = Float.MAX_VALUE
+    for (i in charBoxes.indices) {
+        val b = charBoxes[i].bbox
+        val left = b.left.toFloat()
+        val top = b.top.toFloat()
+        val right = b.right.toFloat()
+        val bottom = b.bottom.toFloat()
+        if (tapX >= left && tapX <= right && tapY >= top && tapY <= bottom) {
+            val area = (right - left) * (bottom - top)
+            if (area < bestArea) {
+                bestArea = area
+                bestIdx = i
+            }
+        }
+    }
+    if (bestIdx >= 0) return orderedStarts[lineIndex] + bestIdx
+
+    val geo = lineGeometries?.getOrNull(lineIndex)
+    val lineVertical = if (geo != null) {
+        OcrHitTester.isLineVertical(vertical, geo.xmin, geo.ymin, geo.xmax, geo.ymax)
+    } else {
+        vertical
+    }
+    var nearestIdx = 0
+    var minDist = Float.MAX_VALUE
+    for (i in charBoxes.indices) {
+        val b = charBoxes[i].bbox
+        val cx = ((b.left + b.right) / 2.0).toFloat()
+        val cy = ((b.top + b.bottom) / 2.0).toFloat()
+        val d = if (lineVertical) kotlin.math.abs(tapY - cy) else kotlin.math.abs(tapX - cx)
+        if (d < minDist) {
+            minDist = d
+            nearestIdx = i
+        }
+    }
+    return orderedStarts[lineIndex] + nearestIdx
 }

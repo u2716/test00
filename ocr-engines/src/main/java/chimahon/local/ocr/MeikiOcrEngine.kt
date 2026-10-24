@@ -7,6 +7,7 @@ import android.util.Log
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
+import chimahon.ocr.EngineChar
 import chimahon.ocr.EngineLine
 import chimahon.ocr.NormalizedBBox
 import chimahon.ocr.OcrBitmapDecoder
@@ -700,12 +701,24 @@ class MeikiOcrEngine(context: Context) : chimahon.ocr.OcrEngine, Closeable {
             bottom = bottom.toDouble() / imgH,
         )
         val direction = if (isVertical) WritingDirection.TTB else WritingDirection.LTR
+        val engineChars = chars.map { c ->
+            EngineChar(
+                char = c.char,
+                bbox = NormalizedBBox(
+                    left = c.bbox[0].toDouble() / imgW,
+                    top = c.bbox[1].toDouble() / imgH,
+                    right = c.bbox[2].toDouble() / imgW,
+                    bottom = c.bbox[3].toDouble() / imgH,
+                ),
+                conf = c.conf,
+            )
+        }
         return EngineLine(
             text = text,
             bbox = normBbox,
             writingDirection = direction,
             language = language,
-        )
+        ).copy(chars = engineChars)
     }
 
     // ────────────────────────── helpers ──────────────────────────

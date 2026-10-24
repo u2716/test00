@@ -165,15 +165,27 @@ fun EngineLine.normalizeFromChunk(chunk: ImageChunk): EngineLine {
     if (chunk.globalY == 0 && chunk.fullHeight == chunk.height) return this
     val pixelTop = bbox.top * chunk.height + chunk.globalY
     val pixelBottom = bbox.bottom * chunk.height + chunk.globalY
-    return copy(
-        bbox = NormalizedBBox(
-            left = bbox.left,
-            top = pixelTop / chunk.fullHeight,
-            right = bbox.right,
-            bottom = pixelBottom / chunk.fullHeight,
-            rotation = bbox.rotation,
-        ),
+    val newBbox = NormalizedBBox(
+        left = bbox.left,
+        top = pixelTop / chunk.fullHeight,
+        right = bbox.right,
+        bottom = pixelBottom / chunk.fullHeight,
+        rotation = bbox.rotation,
     )
+    val newChars = chars?.map { c ->
+        val cpTop = c.bbox.top * chunk.height + chunk.globalY
+        val cpBottom = c.bbox.bottom * chunk.height + chunk.globalY
+        c.copy(
+            bbox = NormalizedBBox(
+                left = c.bbox.left,
+                top = cpTop / chunk.fullHeight,
+                right = c.bbox.right,
+                bottom = cpBottom / chunk.fullHeight,
+                rotation = c.bbox.rotation,
+            ),
+        )
+    }
+    return copy(bbox = newBbox, chars = newChars)
 }
 
 fun dedupeChunkBoundaryResults(results: List<OcrResult>): List<OcrResult> {

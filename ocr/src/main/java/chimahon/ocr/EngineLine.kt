@@ -18,6 +18,16 @@ data class NormalizedBBox(
 enum class WritingDirection { LTR, TTB, RTL }
 
 /**
+ * A single character recognized by an OCR engine, with its bbox.
+ * Coordinates are normalized 0.0–1.0 relative to the original image.
+ */
+data class EngineChar(
+    val char: Char,
+    val bbox: NormalizedBBox,
+    val conf: Float,
+)
+
+/**
  * Shared intermediate representation between any OCR engine and the merger.
  * All coordinates are normalized 0.0–1.0 and axis-aligned.
  */
@@ -29,6 +39,7 @@ data class EngineLine(
     val hasJpText: Boolean,
     val hasKanji: Boolean,
     val rotation: Double = 0.0,
+    val chars: List<EngineChar>? = null,
 )
 
 private val CJ_REGEX = Regex("[\u3041-\u3096\u30A1-\u30FA\u4E01-\u9FFF]")
