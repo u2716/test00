@@ -8,6 +8,7 @@ val hasLocalOcr = file("../ocr-engines/build.gradle.kts").exists()
 
 android {
     namespace = "app.screenlookup"
+    ndkVersion = "29.0.14206865"
     compileSdk = 36
 
     defaultConfig {
