@@ -52,5 +52,5 @@ kotlin {
 dependencies {
     implementation(project(":ocr"))
     implementation(libs.kotlinx.coroutines.android)
-    implementation("com.microsoft.onnxruntime:onnxruntime-mobile:1.30.0")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.30.0")
 }
