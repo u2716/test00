@@ -28,14 +28,14 @@ object Di {
 
     val prefs: PreferenceStore by lazy {
         SharedPreferencesPreferenceStore(
-            app.getSharedPreferences("chimahon_lite_prefs", Context.MODE_PRIVATE),
+            app.getSharedPreferences("screen_lookup_prefs", Context.MODE_PRIVATE),
         )
     }
 
     val httpClient: OkHttpClient by lazy { OkHttpClient() }
 
     val sharedPrefs by lazy {
-        app.getSharedPreferences("chimahon_lite_prefs", Context.MODE_PRIVATE)
+        app.getSharedPreferences("screen_lookup_prefs", Context.MODE_PRIVATE)
     }
 
     val dictionary: DictionaryRepository by lazy {
