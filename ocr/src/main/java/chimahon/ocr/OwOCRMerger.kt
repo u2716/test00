@@ -330,7 +330,10 @@ object OwOCRMerger {
                 if (idx > 0) {
                     append('\n')
                 }
-                append(OcrPreprocessor.clean(line.text))
+                append(
+                    if (line.chars != null && line.chars.size == line.text.length) line.text
+                    else OcrPreprocessor.clean(line.text),
+                )
             }
         }
 
@@ -415,7 +418,10 @@ object OwOCRMerger {
                 if (idx > 0) {
                     append('\n')
                 }
-                append(OcrPreprocessor.clean(line.text))
+                append(
+                    if (line.chars != null && line.chars.size == line.text.length) line.text
+                    else OcrPreprocessor.clean(line.text),
+                )
             }
         }
 
@@ -524,7 +530,9 @@ object OwOCRMerger {
             lines.sortedBy { it.bbox.centerX }
         }
 
-        val mergedText = OcrPreprocessor.clean(sorted.joinToString("") { it.text })
+        val mergedTextRaw = sorted.joinToString("") { it.text }
+        val allCharsAligned = sorted.all { it.chars != null && it.chars.size == it.text.length }
+        val mergedText = if (allCharsAligned) mergedTextRaw else OcrPreprocessor.clean(mergedTextRaw)
         val left = sorted.minOf { it.bbox.left }
         val right = sorted.maxOf { it.bbox.right }
         val top = sorted.minOf { it.bbox.top }

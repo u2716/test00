@@ -718,7 +718,8 @@ class MeikiOcrEngine(context: Context) : chimahon.ocr.OcrEngine, Closeable {
             bbox = normBbox,
             writingDirection = direction,
             language = language,
-        ).copy(chars = engineChars)
+            chars = engineChars,
+        )
     }
 
     // ────────────────────────── helpers ──────────────────────────

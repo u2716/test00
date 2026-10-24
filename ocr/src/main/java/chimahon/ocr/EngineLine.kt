@@ -50,22 +50,31 @@ fun EngineLine(
     bbox: NormalizedBBox,
     writingDirection: WritingDirection?,
     language: OcrLanguage,
+    chars: List<EngineChar>? = null,
 ): EngineLine {
-    val cleanedText = OcrPreprocessor.clean(text)
-    val normalizedText = CJ_REGEX.findAll(cleanedText).map { it.value }.joinToString("")
+    // When per-character boxes are supplied and aligned with `text`, skip
+    // text cleaning so chars stay indexable against `text`. OcrPreprocessor.clean
+    // can insert spaces after punctuation and collapse runs — either would
+    // desync `chars` from `text` and silently force every consumer onto the
+    // weighted-offset fallback. Engines without char boxes still get the
+    // cleaned text (unchanged behavior).
+    val charsAligned = chars != null && chars.size == text.length
+    val finalText = if (charsAligned) text else OcrPreprocessor.clean(text)
+    val normalizedText = CJ_REGEX.findAll(finalText).map { it.value }.joinToString("")
     val hasJpText = normalizedText.isNotEmpty()
     val hasKanji = hasJpText && KANJI_REGEX_ENGINE.containsMatchIn(normalizedText)
-    val charCount = cleanedText.length.coerceAtLeast(1)
+    val charCount = finalText.length.coerceAtLeast(1)
     val dimension = if (writingDirection == WritingDirection.TTB) bbox.height else bbox.width
     val characterSize = dimension / charCount
 
     return EngineLine(
-        text = cleanedText,
+        text = finalText,
         bbox = bbox,
         writingDirection = writingDirection,
         characterSize = characterSize,
         hasJpText = hasJpText,
         hasKanji = hasKanji,
         rotation = bbox.rotation,
+        chars = if (charsAligned) chars else null,
     )
 }
