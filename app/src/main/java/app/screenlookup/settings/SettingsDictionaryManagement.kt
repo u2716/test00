@@ -81,8 +81,8 @@ fun SettingsDictionaryManagementScreen(onBack: () -> Unit) {
     }
 
     val visibleDicts = remember(currentProfile.dictionaryOrder, dictionaries, typeFilter) {
-        val ordered = currentProfile.dictionaryOrder.filter { it in dictionaries } +
-                dictionaries.keys.filter { it !in currentProfile.dictionaryOrder }
+        val ordered = (currentProfile.dictionaryOrder.filter { it in dictionaries } +
+                dictionaries.keys.filter { it !in currentProfile.dictionaryOrder }).distinct()
         if (typeFilter == null) ordered
         else ordered.filter { dictionaries[it]?.contains(typeFilter) == true }
     }

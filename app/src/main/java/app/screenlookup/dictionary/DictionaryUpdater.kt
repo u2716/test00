@@ -88,12 +88,23 @@ object DictionaryUpdater {
 
             // Delete old, move new
             val dictDir = File(context.getExternalFilesDir(null), "dictionaries")
+            
+            val targets = buildList {
+                if (result.termCount > 0) add("term")
+                if (result.freqCount > 0) add("frequency")
+                if (result.pitchCount > 0) add("pitch")
+                if (result.kanjiCount > 0) add("kanji")
+            }
+            
             listOf("term", "frequency", "pitch", "kanji").forEach { type ->
                 val oldDir = File(File(dictDir, type), update.name)
                 if (oldDir.exists()) oldDir.deleteRecursively()
-                val dest = File(File(dictDir, type), title)
-                if (dest.exists()) dest.deleteRecursively()
-                importedDir.copyRecursively(dest, overwrite = true)
+                
+                if (type in targets) {
+                    val dest = File(File(dictDir, type), title)
+                    if (dest.exists()) dest.deleteRecursively()
+                    importedDir.copyRecursively(dest, overwrite = true)
+                }
             }
             
             update.tempZipFile.delete()
