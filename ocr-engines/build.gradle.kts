@@ -14,6 +14,9 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags("-std=c++17")
+                // Force CMake to compile without debug symbols (-g).
+                // This is exactly what PlayTranslate does to keep libMNN.so small.
+                arguments += "-DCMAKE_BUILD_TYPE=Release"
             }
         }
 
