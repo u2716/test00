@@ -27,10 +27,10 @@ import kotlinx.coroutines.sync.Semaphore
  * On-device OCR for Japanese using the meikiocr pipeline
  * (github.com/rtr46/meikiocr).
  *
- * Three ONNX models are executed through onnxruntime-android:
- *   - meiki.text.detect.v0.1.960x544.onnx       text-line detection
- *   - meiki.text.rec.v0.960x32.onnx             horizontal recognition
- *   - meiki.text.rec.v0.vertical.32x480.onnx    vertical recognition
+ * Three MNN models are executed through the MNN Session API:
+ *   - det.mnn       text-line detection
+ *   - rec_horizontal.mnn             horizontal recognition
+ *   - rec_vertical.mnn    vertical recognition
  *
  * The pipeline is a faithful Kotlin port of meikiocr/ocr.py:
  *

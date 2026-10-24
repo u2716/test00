@@ -27,7 +27,7 @@ class ModelDownloader(
     preferenceStore: PreferenceStore,
 ) : OcrModelTrigger {
     companion object {
-        private const val MODELS_VERSION = "3.1"
+        private const val MODELS_VERSION = "3.2"
         private const val RELEASE_URL =
             "https://github.com/u2716/chimahon-local-models/releases/download/v"
         private const val LENS_ZIP = "models.zip"
