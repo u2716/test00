@@ -61,4 +61,5 @@ target_link_options(word_audio_jni PRIVATE
     -Wl,-z,noexecstack
     -Wl,-z,relro
     -Wl,-z,now
+    -s
 )

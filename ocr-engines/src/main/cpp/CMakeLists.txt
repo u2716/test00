@@ -21,3 +21,5 @@ target_link_libraries(lens_asset_init
     ${android-lib}
     dl
 )
+
+target_link_options(lens_asset_init PRIVATE -s)

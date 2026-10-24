@@ -20,3 +20,5 @@ add_library(hoshidicts_jni SHARED
 target_link_libraries(hoshidicts_jni PRIVATE
     hoshidicts
 )
+
+target_link_options(hoshidicts_jni PRIVATE -s)
