@@ -151,7 +151,7 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
         )
 
         if (BuildConfig.HAS_LOCAL_OCR) {
-            val titles = listOf("ScreenAI", "Paddle OCR", "Meiki OCR")
+            val titles = listOf("ScreenAI", "Paddle OCR", "Meiki OCR", "VOCR")
             val items = mutableListOf<SettingsRows.Item>()
             for (i in 0..3) {
                 val status = statuses.getOrNull(i)
