@@ -45,6 +45,8 @@ class VocrEngine(
             .map { File(modelDir, it) }.firstOrNull { it.isFile && it.length() > 0L }
     }
 
+    private fun spotterFile(): File? = File(modelDir, "textspot8_t64n8c16_w8.vtsp").takeIf { it.isFile && it.length() > 0L }
+
     private fun lmFile(): File? = listOf(
         "vocr_lm6_o3_1000k.vlm", "vocr_lm_o3_500k.vlm", "vocr_lm_o3_2000k.vlm",
     ).map { File(modelDir, it) }.firstOrNull { it.isFile && it.length() > 0L }
@@ -59,8 +61,9 @@ class VocrEngine(
                 Log.e(TAG, "no .vocr in ${modelDir.absolutePath}"); return null
             }
             val lm = lmFile()
+            val spotter = spotterFile()
             val built = try {
-                VocrInterpreter.fromFiles(recognizer.absolutePath, lm?.absolutePath, VocrInterpreter.MODE_W8I)
+                VocrInterpreter.fromFiles(recognizer.absolutePath, lm?.absolutePath, spotter?.absolutePath, VocrInterpreter.MODE_W8I)
             } catch (e: Throwable) {
                 Log.e(TAG, "fromFiles failed", e); return null
             }
@@ -84,7 +87,7 @@ class VocrEngine(
             return try {
                 val grey = bitmapToGrey(bmp)
                 val w = bmp.width; val h = bmp.height
-                val boxes = engine.findLines(grey, w, h) ?: return emptyList()
+                val boxes = engine.findTextBlocks(grey, w, h) ?: return emptyList()
                 val lines = ArrayList<EngineLine>(boxes.size)
                 for (b in boxes) {
                     val x = b[0]; val y = b[1]; val bw = b[2]; val bh = b[3]; val dark = b[4] != 0

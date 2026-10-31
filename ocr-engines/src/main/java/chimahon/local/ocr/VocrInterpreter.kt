@@ -18,6 +18,11 @@ data class VocrLineResult(
 class VocrInterpreter private constructor() : Closeable {
     private var handle: Long = 0L
 
+    fun findTextBlocks(grey: ByteArray, w: Int, h: Int): List<IntArray>? {
+        if (handle == 0L) return null
+        return nativeFindTextBlocks(handle, grey, w, h)?.toList()
+    }
+
     fun recognizeLine(grey: ByteArray, w: Int, h: Int, invert: Boolean, useLm: Boolean): VocrLineResult? {
         if (handle == 0L) return null
         val raw = nativeRecognizeLine(handle, grey, w, h, invert, useLm) ?: return null
@@ -72,15 +77,17 @@ class VocrInterpreter private constructor() : Closeable {
             }
         }
 
-        fun fromFiles(blobPath: String, lmPath: String? = null, mode: Int = MODE_W8I): VocrInterpreter {
+        fun fromFiles(blobPath: String, lmPath: String? = null, spotterPath: String? = null, mode: Int = MODE_W8I): VocrInterpreter {
             ensureLibLoaded()
             val inst = VocrInterpreter()
-            inst.handle = nativeCreate(blobPath, lmPath, mode)
+            inst.handle = nativeCreate(blobPath, lmPath, spotterPath, mode)
             check(inst.handle != 0L) { "VOCR failed to load $blobPath (logcat tag vocr-jni)" }
             return inst
         }
 
         @JvmStatic
-        private external fun nativeCreate(blobPath: String, lmPath: String?, mode: Int): Long
+        private external fun nativeCreate(blobPath: String, lmPath: String?, spotterPath: String?, mode: Int): Long
+        @JvmStatic
+        private external fun nativeFindTextBlocks(handle: Long, grey: ByteArray, w: Int, h: Int): Array<IntArray>?
     }
 }

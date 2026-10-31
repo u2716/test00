@@ -12,6 +12,7 @@
 #include "vocr_lines.h"
 #include "vocr_lines_rows.h"
 #include "vocr_charbox.h"
+#include "vocr_textspot.h"
 
 #define TAG "vocr-jni"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  TAG, __VA_ARGS__)
@@ -34,6 +35,8 @@ struct VocrHandle {
     vocr_model model{};
     vocr_ctx   ctx{};
     void*      arena = nullptr; size_t arena_bytes = 0;
+    void*      spotter_blob = nullptr; size_t spotter_blob_bytes = 0;
+    vocr_textspot spotter{};
 
     bool       has_lm = false;
     void*      lm_blob = nullptr; size_t lm_blob_bytes = 0;
@@ -62,6 +65,7 @@ static void release(VocrHandle* h) {
     std::free(h->align_map);
     std::free(h->lm_ws); std::free(h->lm_blob);
     std::free(h->arena); std::free(h->blob);
+    std::free(h->spotter_blob);
     delete h;
 }
 
@@ -80,7 +84,7 @@ static bool read_file(const char* path, void** out, size_t* n, char* err, size_t
 
 extern "C" JNIEXPORT jlong JNICALL
 Java_chimahon_local_ocr_VocrInterpreter_nativeCreate(
-        JNIEnv* env, jclass, jstring jBlobPath, jstring jLmPath, jint mode) {
+        JNIEnv* env, jclass, jstring jBlobPath, jstring jLmPath, jstring jSpotterPath, jint mode) {
     const char* cpath = env->GetStringUTFChars(jBlobPath, nullptr);
     VocrHandle* h = new VocrHandle();
     char err[256]{};
@@ -102,6 +106,17 @@ Java_chimahon_local_ocr_VocrInterpreter_nativeCreate(
     if (!h->arena) { release(h); return 0; }
     rc = vocr_init(&h->ctx, &h->model, &opts, h->arena, h->arena_bytes);
     if (rc) { LOGE("vocr_init: %d", rc); release(h); return 0; }
+
+    if (jSpotterPath != nullptr) {
+        const char* sp = env->GetStringUTFChars(jSpotterPath, nullptr);
+        if (read_file(sp, &h->spotter_blob, &h->spotter_blob_bytes, err, sizeof err)) {
+            int src = vocr_textspot_load(&h->spotter, h->spotter_blob, h->spotter_blob_bytes);
+            if (src) { LOGE("vocr_textspot_load: %d", src); std::free(h->spotter_blob); h->spotter_blob = nullptr; }
+        } else {
+            LOGE("%s", err);
+        }
+        env->ReleaseStringUTFChars(jSpotterPath, sp);
+    }
 
     if (jLmPath != nullptr) {
         const char* lp = env->GetStringUTFChars(jLmPath, nullptr);
@@ -274,6 +289,47 @@ Java_chimahon_local_ocr_VocrInterpreter_nativeRecognizeLine(
     for (size_t i = 0; i < boxes.size(); i++) {
         std::snprintf(buf, sizeof buf, "%.4f", boxes[i].x0); set(7 + static_cast<jsize>(i) * 2 + 0, buf);
         std::snprintf(buf, sizeof buf, "%.4f", boxes[i].x1); set(7 + static_cast<jsize>(i) * 2 + 1, buf);
+    }
+    return out;
+}
+
+extern "C" JNIEXPORT jobjectArray JNICALL
+Java_chimahon_local_ocr_VocrInterpreter_nativeFindTextBlocks(
+        JNIEnv* env, jclass, jlong handle, jbyteArray jGrey, jint w, jint h) {
+    auto* vh = reinterpret_cast<VocrHandle*>(handle);
+    if (!vh || !vh->spotter_blob || env->GetArrayLength(jGrey) != w * h) return nullptr;
+
+    jbyte* px = env->GetByteArrayElements(jGrey, nullptr);
+    VocrLinesImage img = {};
+    img.pixels = reinterpret_cast<const unsigned char*>(px);
+    img.width = w; img.height = h; img.stride = w; img.bpp = VOCR_LINES_GREY;
+
+    size_t need = vocr_textspot_arena_bytes(&vh->spotter, w, h);
+    void* arena = a16(need);
+    if (!arena) { env->ReleaseByteArrayElements(jGrey, px, JNI_ABORT); return nullptr; }
+    VocrTextspotSet set = {};
+    
+    int rc = vocr_textspot_find(&vh->spotter, &img, 0, arena, need, &set);
+    std::free(arena);
+    env->ReleaseByteArrayElements(jGrey, px, JNI_ABORT);
+
+    if (rc || set.count == 0) return nullptr;
+
+    int pick = set.pick;
+    if (pick < 0) pick = 0;
+    
+    VocrTextspotBlock* block = &set.blocks[pick];
+    
+    jclass intArrCls = env->FindClass("[I");
+    jobjectArray out = env->NewObjectArray(block->count, intArrCls, nullptr);
+    
+    for (int i = 0; i < block->count; i++) {
+        VocrTextspotBox* box = &set.boxes[block->first + i];
+        jintArray jbox = env->NewIntArray(5);
+        jint tmp[5] = { box->x, box->y, box->w, box->h, box->dark };
+        env->SetIntArrayRegion(jbox, 0, 5, tmp);
+        env->SetObjectArrayElement(out, i, jbox);
+        env->DeleteLocalRef(jbox);
     }
     return out;
 }
