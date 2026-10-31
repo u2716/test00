@@ -43,7 +43,7 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
         while (true) {
             statuses = withContext(Dispatchers.IO) {
                 val installed = listOf(ocr.isDownloaded, ocr.isPaddleDownloaded, ocr.isMeikiDownloaded, ocr.isVocrDownloaded)
-                val versions = listOf(ocr.lensVersionInstalled, ocr.paddleVersionInstalled, null, null)
+                val versions = listOf(ocr.lensVersionInstalled, ocr.paddleVersionInstalled, ocr.meikiVersionInstalled, ocr.vocrVersionInstalled)
                 listOf("screenai_models", "paddle_ocr", "meiki_ocr", "vocr_models").mapIndexed { index, dir ->
                     val bytes = File(context.filesDir, dir).walkTopDown()
                         .filter { it.isFile }.sumOf { it.length() }

@@ -52,6 +52,10 @@ class ModelDownloader(
         preferenceStore.getString(Preference.appStateKey("ocr_lens_model_version"), "")
     private val installedPaddleVersion =
         preferenceStore.getString(Preference.appStateKey("ocr_paddle_model_version"), "")
+    private val installedMeikiVersion =
+        preferenceStore.getString(Preference.appStateKey("ocr_meiki_model_version"), "")
+    private val installedVocrVersion =
+        preferenceStore.getString(Preference.appStateKey("ocr_vocr_model_version"), "")
     private val knownVersion =
         preferenceStore.getString(Preference.appStateKey("ocr_models_known_version"), "")
 
@@ -63,6 +67,10 @@ class ModelDownloader(
 
     val paddleVersionInstalled: String
         get() = installedPaddleVersion.get().ifBlank { latestVersion }
+    val meikiVersionInstalled: String
+        get() = installedMeikiVersion.get().ifBlank { latestVersion }
+    val vocrVersionInstalled: String
+        get() = installedVocrVersion.get().ifBlank { latestVersion }
 
     val hasLensUpdate: Boolean
         get() = isDownloaded && hasNewerRevision(lensVersionInstalled, latestVersion)
@@ -286,8 +294,11 @@ class ModelDownloader(
                     installedPaddleVersion.set(version)
                     Di.paddleOcrBridge.invalidateModels()
                 }
-                MEIKI_ZIP -> Unit
-                VOCR_ZIP -> Di.vocrBridge.destroy()
+                MEIKI_ZIP -> installedMeikiVersion.set(version)
+                VOCR_ZIP -> {
+                    installedVocrVersion.set(version)
+                    Di.vocrBridge.destroy()
+                }
                 else -> error("Unknown OCR model zip: $zipName")
             }
             return@withContext Result.success(Unit)
