@@ -87,11 +87,32 @@ class VocrEngine(
             return try {
                 val grey = bitmapToGrey(bmp)
                 val w = bmp.width; val h = bmp.height
-                val boxes = engine.findTextBlocks(grey, w, h) ?: return emptyList()
+                
+                // The C++ spotter has a hard limit of 2048px per side to prevent int32 overflow.
+                // We must downscale the image if it's too large, find the text, then scale the
+                // bounding boxes back up to the original resolution.
+                val maxSide = 2048
+                val scale = minOf(1f, maxSide.toFloat() / w, maxSide.toFloat() / h)
+                val sw = (w * scale).toInt().coerceAtLeast(1)
+                val sh = (h * scale).toInt().coerceAtLeast(1)
+                
+                val spotterGrey = if (scale >= 1f) grey else {
+                    val scaledBmp = Bitmap.createScaledBitmap(bmp, sw, sh, true)
+                    try { bitmapToGrey(scaledBmp) } finally { scaledBmp.recycle() }
+                }
+                
+                val boxes = engine.findTextBlocks(spotterGrey, sw, sh) ?: return emptyList()
                 val lines = ArrayList<EngineLine>(boxes.size)
                 for (b in boxes) {
-                    val x = b[0]; val y = b[1]; val bw = b[2]; val bh = b[3]; val dark = b[4] != 0
-                    if (bw <= 0 || bh <= 0 || x < 0 || y < 0 || x + bw > w || y + bh > h) continue
+                    // Scale coordinates back to the original image size
+                    val x = (b[0] / scale).toInt().coerceIn(0, w - 1)
+                    val y = (b[1] / scale).toInt().coerceIn(0, h - 1)
+                    val bw = (b[2] / scale).toInt().coerceAtMost(w - x)
+                    val bh = (b[3] / scale).toInt().coerceAtMost(h - y)
+                    val dark = b[4] != 0
+                    
+                    if (bw <= 0 || bh <= 0) continue
+                    
                     val crop = cropGrey(grey, w, x, y, bw, bh)
                     val r = engine.recognizeLine(crop, bw, bh, invert = dark, useLm = true) ?: continue
                     if (r.error != null) { Log.w(TAG, "line ${r.error}"); continue }
