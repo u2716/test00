@@ -117,6 +117,10 @@ class VocrEngine(
                     if (conf < 30) continue
                     
                     if (bw <= 0 || bh <= 0) continue
+                    if (bw > MAX_RECOGNIZER_SIDE || bh > MAX_RECOGNIZER_SIDE) {
+                        Log.w(TAG, "skipping crop ${bw}x${bh} larger than ${MAX_RECOGNIZER_SIDE}px")
+                        continue
+                    }
                     
                     var crop = cropGrey(grey, w, x, y, bw, bh)
                     var cw = bw
@@ -233,5 +237,11 @@ class VocrEngine(
     companion object {
         private const val TAG = "VocrEngine"
         private val INFER_PERMITS = if (Runtime.getRuntime().availableProcessors() >= 8) 2 else 1
+
+        // Must stay <= VOCR_TEXTSPOT_MAX_SIDE * 4 in vocr_jni.cpp, which sizes the
+        // native per-line scratch buffer (VocrHandle::prof). Crops wider or taller
+        // than this are skipped here so they never reach JNI and corrupt native
+        // memory (a heap overflow that later manifests as Skia/Adreno/JNI crashes).
+        private const val MAX_RECOGNIZER_SIDE = 8192
     }
 }

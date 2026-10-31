@@ -152,7 +152,13 @@ Java_chimahon_local_ocr_VocrInterpreter_nativeCreate(
     h->topc      = static_cast<uint16_t*>(a16(kMaxFrames * kTopK * sizeof(uint16_t)));
     h->blank     = static_cast<float*>(a16(kMaxFrames * sizeof(float)));
     h->best      = static_cast<uint16_t*>(a16(kMaxFrames * sizeof(uint16_t)));
-    h->prof      = static_cast<uint32_t*>(a16(1024 * sizeof(uint32_t)));
+    /* vocr_charbox_profile() writes img->width entries, and the line crop
+       fed to nativeRecognizeLine can be far wider than 1024 px: the spotter
+       input is scaled to VOCR_TEXTSPOT_MAX_SIDE, but the crop handed to the
+       recognizer is taken from the original, unscaled image, so its width
+       can be up to the screenshot's full width. Size for VOCR_TEXTSPOT_MAX_SIDE
+       * 4 entries (32 KB) to cover any realistic 8K-wide crop. */
+    h->prof      = static_cast<uint32_t*>(a16(VOCR_TEXTSPOT_MAX_SIDE * 4u * sizeof(uint32_t)));
     h->charbox   = static_cast<vocr_charbox*>(a16(VOCR_CHARBOX_MAX * sizeof(vocr_charbox)));
     h->align_map = static_cast<int16_t*>(a16(kTextCap * sizeof(int16_t)));
     if (!h->topv || !h->topc || !h->blank || !h->best || !h->prof || !h->charbox || !h->align_map) {
@@ -250,6 +256,15 @@ Java_chimahon_local_ocr_VocrInterpreter_nativeRecognizeLine(
         jbyteArray jGrey, jint w, jint h, jboolean invert, jboolean useLm) {
     auto* vh = reinterpret_cast<VocrHandle*>(handle);
     if (!vh) return nullptr;
+    if (w <= 0 || h <= 0) return nullptr;
+    /* Defensive bound: h->prof is sized for VOCR_TEXTSPOT_MAX_SIDE * 4
+       uint32 entries (see the constructor). Anything wider would overflow
+       vocr_charbox_profile()'s writes. */
+    if (static_cast<unsigned>(w) > VOCR_TEXTSPOT_MAX_SIDE * 4u ||
+        static_cast<unsigned>(h) > VOCR_TEXTSPOT_MAX_SIDE * 4u) {
+        LOGE("nativeRecognizeLine: crop %dx%d exceeds scratch limits", (int)w, (int)h);
+        return nullptr;
+    }
     if (env->GetArrayLength(jGrey) != static_cast<jsize>(w) * h) return nullptr;
 
     std::lock_guard<std::mutex> g(vh->lock);
@@ -317,7 +332,14 @@ extern "C" JNIEXPORT jobjectArray JNICALL
 Java_chimahon_local_ocr_VocrInterpreter_nativeFindTextBlocks(
         JNIEnv* env, jclass, jlong handle, jbyteArray jGrey, jint w, jint h) {
     auto* vh = reinterpret_cast<VocrHandle*>(handle);
-    if (!vh || !vh->spotter_blob || env->GetArrayLength(jGrey) != w * h) return nullptr;
+    if (!vh || !vh->spotter_blob) return nullptr;
+    if (w <= 0 || h <= 0) return nullptr;
+    if (static_cast<unsigned>(w) > VOCR_TEXTSPOT_MAX_SIDE ||
+        static_cast<unsigned>(h) > VOCR_TEXTSPOT_MAX_SIDE) {
+        LOGE("nativeFindTextBlocks: image %dx%d exceeds spotter limit", (int)w, (int)h);
+        return nullptr;
+    }
+    if (env->GetArrayLength(jGrey) != w * h) return nullptr;
 
     jbyte* px = env->GetByteArrayElements(jGrey, nullptr);
     VocrLinesImage img = {};
