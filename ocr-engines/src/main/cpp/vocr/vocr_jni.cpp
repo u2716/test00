@@ -163,7 +163,7 @@ static std::vector<CharOut> build_charboxes(VocrHandle* h, const vocr_image& img
     if (vocr_charbox_profile(&img, h->prof) != 0) return out;
     static const vocr_charbox_cal kCal = { 0, { 0, -45, -32, 48, -23, -4, 0, -6 } };
     if (vocr_charbox_find(&h->model, h->best, 1, frames,
-                          img.width, img.height, VOCR_CHARBOX_CELL,
+                          img.width, img.height, 0, /* plain cells (VOCR_CHARBOX_CELL is not a real flag) */
                           &kCal, nullptr, h->prof,
                           h->charbox, VOCR_CHARBOX_MAX, &ngreedy) != 0) {
         return out;
@@ -221,7 +221,7 @@ Java_chimahon_local_ocr_VocrInterpreter_nativeRecognizeLine(
     jbyte* px = env->GetByteArrayElements(jGrey, nullptr);
 
     vocr_image img = {};
-    img.pixels = px;
+    img.pixels = reinterpret_cast<const unsigned char*>(px);
     img.width  = static_cast<unsigned>(w);
     img.height = static_cast<unsigned>(h);
     img.stride = static_cast<size_t>(w);
@@ -284,8 +284,8 @@ Java_chimahon_local_ocr_VocrInterpreter_nativeFindLines(
     if (env->GetArrayLength(jGrey) != static_cast<jsize>(w) * h) return nullptr;
     jbyte* px = env->GetByteArrayElements(jGrey, nullptr);
     VocrLinesImage img = {};
-    img.pixels = px; img.width = w; img.height = h;
-    img.stride = static_cast<size_t>(w); img.format = VOCR_LINES_GREY;
+    img.pixels = reinterpret_cast<const unsigned char*>(px); img.width = w; img.height = h;
+    img.stride = static_cast<size_t>(w); img.bpp = VOCR_LINES_GREY; /* 1 = grey, 4 = RGBA */
     size_t need = vocr_lines_arena_bytes(w, h);
     void* arena = a16(need);
     if (!arena) { env->ReleaseByteArrayElements(jGrey, px, JNI_ABORT); return nullptr; }
