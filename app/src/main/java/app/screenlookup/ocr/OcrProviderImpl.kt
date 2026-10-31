@@ -17,6 +17,7 @@ class OcrProviderImpl(
     private val local: LocalOcrBridge?,
     private val paddle: PaddleOcrBridge?,
     private val meiki: MeikiOcrBridge?,
+    private val vocr: VocrBridge?,
     private val downloader: ModelDownloader,
     private val lens: LensClient,
 ) : OcrProvider {
@@ -28,10 +29,19 @@ class OcrProviderImpl(
     override fun paddleBridge(): OcrBridge? = paddle?.asBridge()
 
     override fun meikiBridge(): OcrBridge? = meiki?.asBridge()
+    override fun vocrBridge(): OcrBridge? = vocr?.asBridge()
 
     override fun modelTrigger(): OcrModelTrigger = downloader
 
     override fun lensClient(): LensClient = lens
+
+    private fun VocrBridge.asBridge() = object : OcrBridge {
+        override val isAvailable get() = this@asBridge.isAvailable
+        override val isInitialized get() = this@asBridge.isInitialized
+        override suspend fun init() = this@asBridge.init()
+        override suspend fun recognize(bytes: ByteArray, language: chimahon.ocr.OcrLanguage) =
+            this@asBridge.recognize(bytes, language)
+    }
 
     private fun LocalOcrBridge.asBridge() = object : OcrBridge {
         override val isAvailable get() = this@asBridge.isAvailable

@@ -120,6 +120,7 @@ private val OcrEngineType.preferenceKey: String
         OcrEngineType.LOCAL -> "local"
         OcrEngineType.PADDLE -> "paddle"
         OcrEngineType.MEIKI -> "meiki"
+        OcrEngineType.VOCR -> "vocr"
     }
 
 private val OcrEngineType.label: String
@@ -128,6 +129,7 @@ private val OcrEngineType.label: String
         OcrEngineType.LOCAL -> "ScreenAI"
         OcrEngineType.PADDLE -> "Paddle OCR"
         OcrEngineType.MEIKI -> "Meiki OCR"
+        OcrEngineType.VOCR -> "Vita VN OCR"
     }
 
 /** Clamp bounds for the draggable control bar, in pixels. */
@@ -489,6 +491,7 @@ internal fun ScreenLookupOverlay(
                         OcrEngineType.LOCAL -> Di.modelDownloader.triggerDownload()
                         OcrEngineType.PADDLE -> Di.modelDownloader.triggerPaddleDownload()
                         OcrEngineType.MEIKI -> Di.modelDownloader.triggerMeikiDownload()
+                        OcrEngineType.VOCR -> Di.modelDownloader.triggerVocrDownload()
                         OcrEngineType.CLOUD -> Unit
                     }
                     blocks = emptyList()
@@ -802,6 +805,10 @@ private fun OcrEngineIcon(
                 fontWeight = FontWeight.Black,
                 modifier = Modifier.offset(y = (-0.5).dp),
             )
+        }
+        OcrEngineType.VOCR -> Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            Icon(Icons.Outlined.Smartphone, contentDescription = null, tint = tint)
+            Text("V", color = tint, fontSize = 10.sp, fontWeight = FontWeight.Black)
         }
         OcrEngineType.MEIKI -> Box(modifier = modifier, contentAlignment = Alignment.Center) {
             Icon(

@@ -12,6 +12,7 @@ enum class OcrEngineType {
     LOCAL,
     PADDLE,
     MEIKI,
+    VOCR,
     ;
 
     companion object {
@@ -38,6 +39,8 @@ suspend fun recognizePage(
             recognizeWithBridge(bytes, language, provider.paddleBridge(), provider.modelTrigger(), isLens = false, isPaddle = true)
         OcrEngineType.MEIKI ->
             recognizeWithBridge(bytes, OcrLanguage.JAPANESE, provider.meikiBridge(), provider.modelTrigger(), isLens = false, isPaddle = false)
+        OcrEngineType.VOCR ->
+            recognizeWithBridge(bytes, OcrLanguage.JAPANESE, provider.vocrBridge(), provider.modelTrigger(), isLens = false, isPaddle = false, isVocr = true)
         OcrEngineType.CLOUD ->
             provider.lensClient().getDebugOcrData(bytes = bytes, language = language).mergedResults
     }
@@ -57,6 +60,8 @@ suspend fun recognizePage(
             recognizeBitmapWithBridge(bitmap, language, provider.paddleBridge(), provider.modelTrigger(), isLens = false, isPaddle = true)
         OcrEngineType.MEIKI ->
             recognizeBitmapWithBridge(bitmap, OcrLanguage.JAPANESE, provider.meikiBridge(), provider.modelTrigger(), isLens = false, isPaddle = false)
+        OcrEngineType.VOCR ->
+            recognizeBitmapWithBridge(bitmap, OcrLanguage.JAPANESE, provider.vocrBridge(), provider.modelTrigger(), isLens = false, isPaddle = false, isVocr = true)
         OcrEngineType.CLOUD ->
             provider.lensClient().getDebugOcrData(bitmap = bitmap, language = language).mergedResults
     }
@@ -69,8 +74,9 @@ private suspend fun recognizeWithBridge(
     trigger: OcrModelTrigger?,
     isLens: Boolean,
     isPaddle: Boolean,
+    isVocr: Boolean = false,
 ): List<OcrResult> {
-    if (!ensureReady(bridge, trigger, isLens, isPaddle)) return emptyList()
+    if (!ensureReady(bridge, trigger, isLens, isPaddle, isVocr)) return emptyList()
     return processImageWithChunks(bytes, language) { chunk ->
         val chunkBytes = withContext(Dispatchers.Default) { chunk.bitmap.toJpegBytes(85) }
         val lines = bridge!!.recognize(chunkBytes, language)
@@ -86,8 +92,9 @@ private suspend fun recognizeBitmapWithBridge(
     trigger: OcrModelTrigger?,
     isLens: Boolean,
     isPaddle: Boolean,
+    isVocr: Boolean = false,
 ): List<OcrResult> {
-    if (!ensureReady(bridge, trigger, isLens, isPaddle)) return emptyList()
+    if (!ensureReady(bridge, trigger, isLens, isPaddle, isVocr)) return emptyList()
     return processImageWithChunks(bitmap, language) { chunk ->
         val chunkBytes = withContext(Dispatchers.Default) { chunk.bitmap.toJpegBytes(85) }
         val lines = bridge!!.recognize(chunkBytes, language)
@@ -101,11 +108,13 @@ private suspend fun ensureReady(
     trigger: OcrModelTrigger?,
     isLens: Boolean,
     isPaddle: Boolean,
+    isVocr: Boolean = false,
 ): Boolean {
     if (trigger != null) {
         val downloaded = when {
             isLens -> trigger.isDownloaded
             isPaddle -> trigger.isPaddleDownloaded
+            isVocr -> trigger.isVocrDownloaded
             else -> trigger.isMeikiDownloaded
         }
         if (!downloaded) {
@@ -113,6 +122,7 @@ private suspend fun ensureReady(
             when {
                 isLens -> trigger.triggerDownload()
                 isPaddle -> trigger.triggerPaddleDownload()
+                isVocr -> trigger.triggerVocrDownload()
                 else -> trigger.triggerMeikiDownload()
             }
             return false

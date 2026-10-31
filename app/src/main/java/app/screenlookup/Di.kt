@@ -8,6 +8,7 @@ import app.screenlookup.ocr.ModelDownloader
 import app.screenlookup.ocr.ModelVersionResolver
 import app.screenlookup.ocr.OcrProviderImpl
 import app.screenlookup.ocr.PaddleOcrBridge
+import app.screenlookup.ocr.VocrBridge
 import chimahon.DictionaryRepository
 import chimahon.audio.WordAudioPreferences
 import chimahon.audio.WordAudioService
@@ -100,6 +101,7 @@ object Di {
     val localOcrBridge: LocalOcrBridge by lazy { LocalOcrBridge(app) }
     val paddleOcrBridge: PaddleOcrBridge by lazy { PaddleOcrBridge(app) }
     val meikiBridge: MeikiOcrBridge by lazy { MeikiOcrBridge(app) }
+    val vocrBridge: VocrBridge by lazy { VocrBridge(app) }
 
     val modelVersionResolver: ModelVersionResolver by lazy { ModelVersionResolver(httpClient) }
 
@@ -118,6 +120,7 @@ object Di {
             local = if (BuildConfig.HAS_LOCAL_OCR) localOcrBridge else null,
             paddle = if (BuildConfig.HAS_LOCAL_OCR) paddleOcrBridge else null,
             meiki = if (BuildConfig.HAS_LOCAL_OCR) meikiBridge else null,
+            vocr = if (BuildConfig.HAS_LOCAL_OCR) vocrBridge else null,
             downloader = modelDownloader,
             lens = lensClient,
         )

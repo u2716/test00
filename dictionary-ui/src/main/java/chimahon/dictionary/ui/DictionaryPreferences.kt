@@ -125,6 +125,10 @@ class DictionaryPreferences(
 
     fun customCss() = preferenceStore.getString("pref_dictionary_custom_css", "")
 
+    /** VOCR model tier loaded into RAM: "small" (fastest), "medium" (balanced), "large" (most accurate).
+     *  All three files ship in the same zip; this only selects which one is loaded. */
+    fun vocrTier() = preferenceStore.getString("pref_ocr_vocr_tier", "medium")
+
     // -------------------------------------------------------------------------
     // Profile storage (raw pref keys — consumed by AnkiProfileStore and settings UI)
     // -------------------------------------------------------------------------

@@ -63,3 +63,29 @@ target_link_libraries(lens_asset_init
 )
 
 target_link_options(lens_asset_init PRIVATE -s)
+
+# ── VOCR — plain C99 recognizer + LM + finder + charboxes ─────────────────────────
+set(VOCR_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vocr)
+add_library(vocr STATIC
+    ${VOCR_DIR}/vocr.c
+    ${VOCR_DIR}/vocr_lm.c
+    ${VOCR_DIR}/vocr_lines.c
+    ${VOCR_DIR}/vocr_lines_rows.c
+    ${VOCR_DIR}/vocr_charbox.c
+    ${VOCR_DIR}/vocr_post.c
+)
+target_include_directories(vocr PUBLIC ${VOCR_DIR})
+# -ffp-contract=off and -fno-fast-math are MANDATORY (runtime/README.md): without them
+# the compiler may fuse a*b+c into FMA and the logits stop matching the reference.
+target_compile_options(vocr PRIVATE
+    -std=c99 -O2 -ffp-contract=off -fno-fast-math
+    -ffunction-sections -fdata-sections -Wall -Wextra -Wno-unused-parameter
+)
+if(ANDROID_ABI STREQUAL "armeabi-v7a")
+    target_compile_options(vocr PRIVATE -mfpu=neon)
+endif()
+
+add_library(vocr_jni SHARED ${VOCR_DIR}/vocr_jni.cpp)
+target_link_libraries(vocr_jni PRIVATE vocr android log m)
+target_link_options(vocr_jni PRIVATE -Wl,--gc-sections -s)
+

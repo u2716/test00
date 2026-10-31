@@ -31,6 +31,8 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val prefs = remember { Di.dictionaryPreferences }
     val ocr = remember { Di.modelDownloader }
+    val currentEngine by prefs.ocrEngine().collectAsState()
+    val currentTier by prefs.vocrTier().collectAsState()
 
     var statuses by remember { mutableStateOf<List<OcrModelStatus>>(emptyList()) }
     var selected by remember { mutableStateOf<Int?>(null) }
@@ -113,6 +115,7 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
             put("local", "ScreenAI")
             put("paddle", "Paddle OCR")
             put("meiki", "Meiki OCR")
+            put("vocr", "Vita VN OCR")
         }
     }
 
@@ -130,11 +133,13 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
                             Di.localOcrBridge.destroy()
                             Di.paddleOcrBridge.destroy()
                             Di.meikiBridge.destroy()
+                            Di.vocrBridge.destroy()
 
                             when (chosen) {
                                 "local" -> if (!ocr.isDownloaded) ocr.triggerDownload()
                                 "paddle" -> if (!ocr.isPaddleDownloaded) ocr.triggerPaddleDownload()
                                 "meiki" -> if (!ocr.isMeikiDownloaded) ocr.triggerMeikiDownload()
+                                "vocr" -> if (!ocr.isVocrDownloaded) ocr.triggerVocrDownload()
                             }
                             true
                         },
@@ -167,6 +172,35 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
                 onClick = { importLauncher.launch(arrayOf("application/zip")) },
             )
             add(SettingsRows.Section(title = "Models", items = items))
+            if (currentEngine == "vocr") {
+                val vocrReady = ocr.isVocrDownloaded
+                add(SettingsRows.Section(
+                    title = "Vita VN OCR",
+                    items = listOf(
+                        SettingsRows.Item.BasicDropdown(
+                            value = currentTier,
+                            entries = mapOf(
+                                "small"  to "Small — fastest, lowest memory",
+                                "medium" to "Medium — balanced (recommended)",
+                                "large"  to "Large — most accurate, higher memory",
+                            ),
+                            title = "Model size",
+                            subtitle = if (vocrReady) "Downloaded" else "Not downloaded",
+                            onValueChanged = { tier ->
+                                prefs.vocrTier().set(tier)
+                                Di.vocrBridge.destroy()
+                                if (!ocr.isVocrDownloaded) ocr.triggerVocrDownload()
+                                refreshing++
+                            },
+                        ),
+                        SettingsRows.Item.Button(
+                            title = "Download / refresh VOCR models",
+                            subtitle = "vocr.zip from chimahon-local-models v3.3",
+                            onClick = { ocr.triggerVocrDownload(force = true); refreshing++ },
+                        ),
+                    ),
+                ))
+            }
         }
     }
 

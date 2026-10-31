@@ -24,10 +24,10 @@ class ModelDownloader(
     private val context: Context,
     private val httpClient: OkHttpClient,
     private val versionResolver: ModelVersionResolver,
-    preferenceStore: PreferenceStore,
+    private val preferenceStore: PreferenceStore,
 ) : OcrModelTrigger {
     companion object {
-        private const val MODELS_VERSION = "3.2"
+        private const val MODELS_VERSION = "3.3"
         private const val RELEASE_URL =
             "https://github.com/u2716/chimahon-local-models/releases/download/v"
         private const val LENS_ZIP = "models.zip"
@@ -35,6 +35,12 @@ class ModelDownloader(
         private const val PADDLE_DIR = "paddle_ocr"
         private const val MEIKI_ZIP = "meiki-ocr.zip"
         private const val MEIKI_DIR = "meiki_ocr"
+        private const val VOCR_ZIP = "vocr.zip"
+        private const val VOCR_DIR = "vocr_models"
+        private val VOCR_COMMON = listOf(
+            "textspot8_t64n8c16_w8.vtsp",
+            "vocr_lm6_o3_1000k.vlm",
+        )
         private const val LENS_DIR = "screenai_models"
         private const val ID_OCR_PROGRESS = -204
         private const val CHANNEL_OCR_MODEL_DOWNLOAD = "ocr_model_download_channel"
@@ -250,6 +256,7 @@ class ModelDownloader(
                 LENS_ZIP -> LENS_DIR
                 PADDLE_ZIP -> PADDLE_DIR
                 MEIKI_ZIP -> MEIKI_DIR
+                VOCR_ZIP -> VOCR_DIR
                 else -> error("Unknown OCR model zip: $zipName")
             }
             val url = "$RELEASE_URL$version/$zipName"
@@ -279,6 +286,7 @@ class ModelDownloader(
                     Di.paddleOcrBridge.invalidateModels()
                 }
                 MEIKI_ZIP -> Unit
+                VOCR_ZIP -> Di.vocrBridge.destroy()
                 else -> error("Unknown OCR model zip: $zipName")
             }
             return@withContext Result.success(Unit)
@@ -310,6 +318,35 @@ class ModelDownloader(
             else -> error("Unknown OCR model bundle: $bundle")
         }
         ModelBundleInstaller.install(input, context.filesDir, bundle, required.map { it.relativeTo(bundleRoot).path })
+    }
+
+    private fun currentVocrTier(): String =
+        preferenceStore.getString("pref_ocr_vocr_tier", "medium").get()
+
+    private fun vocrTierFile(tier: String): String = when (tier) {
+        "small" -> "VOCR6.2_S_w8.vocr"
+        "large" -> "VOCR6.2_L_w8_2l.vocr"
+        else    -> "VOCR6.2_N_w8g2.vocr"
+    }
+
+    /** True when every file needed to run the *currently-selected tier* is on disk.
+     *  All three .vocr files ship in the zip; only the tier's file is required. */
+    override val isVocrDownloaded: Boolean
+        get() = supportedAbi()?.let {
+            ModelBundleInstaller.recover(context.filesDir, VOCR_DIR)
+            val root = File(context.filesDir, VOCR_DIR)
+            (VOCR_COMMON + vocrTierFile(currentVocrTier()))
+                .all { n -> File(root, n).let { f -> f.isFile && f.length() > 0L } }
+        } ?: false
+
+    override fun triggerVocrDownload(force: Boolean) {
+        if (isVocrDownloaded && !force) return
+        scope.launch {
+            downloadWithNotifications(
+                progressText = "Downloading Vita VN OCR models...",
+                successText = "Vita VN OCR models ready",
+            ) { downloadZip(VOCR_ZIP) }
+        }
     }
 
     private fun hasNewerRevision(current: String, candidate: String): Boolean {

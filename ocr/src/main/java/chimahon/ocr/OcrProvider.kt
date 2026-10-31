@@ -21,9 +21,11 @@ interface OcrModelTrigger {
     val isDownloaded: Boolean
     val isPaddleDownloaded: Boolean
     val isMeikiDownloaded: Boolean
+    val isVocrDownloaded: Boolean
     fun triggerDownload(force: Boolean = false)
     fun triggerPaddleDownload(force: Boolean = false)
     fun triggerMeikiDownload()
+    fun triggerVocrDownload(force: Boolean = false)
 }
 
 /**
@@ -39,6 +41,7 @@ interface OcrProvider {
     fun localBridge(): OcrBridge?
     fun paddleBridge(): OcrBridge?
     fun meikiBridge(): OcrBridge?
+    fun vocrBridge(): OcrBridge?
     fun modelTrigger(): OcrModelTrigger?
     fun lensClient(): LensClient
 }
