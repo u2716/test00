@@ -42,9 +42,9 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
     LaunchedEffect(refreshing) {
         while (true) {
             statuses = withContext(Dispatchers.IO) {
-                val installed = listOf(ocr.isDownloaded, ocr.isPaddleDownloaded, ocr.isMeikiDownloaded)
-                val versions = listOf(ocr.lensVersionInstalled, ocr.paddleVersionInstalled, null)
-                listOf("screenai_models", "paddle_ocr", "meiki_ocr").mapIndexed { index, dir ->
+                val installed = listOf(ocr.isDownloaded, ocr.isPaddleDownloaded, ocr.isMeikiDownloaded, ocr.isVocrDownloaded)
+                val versions = listOf(ocr.lensVersionInstalled, ocr.paddleVersionInstalled, null, null)
+                listOf("screenai_models", "paddle_ocr", "meiki_ocr", "vocr_models").mapIndexed { index, dir ->
                     val bytes = File(context.filesDir, dir).walkTopDown()
                         .filter { it.isFile }.sumOf { it.length() }
                     OcrModelStatus(installed[index], bytes, versions[index])
@@ -66,7 +66,7 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
     if (selected != null) {
         val index = selected!!
         val status = statuses.getOrNull(index)
-        val titles = listOf("ScreenAI", "Paddle OCR", "Meiki OCR")
+        val titles = listOf("ScreenAI", "Paddle OCR", "Meiki OCR", "VOCR")
         AlertDialog(
             onDismissRequest = { if (!deleting) selected = null },
             title = { Text(titles[index]) },
@@ -89,6 +89,7 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
                                     0 -> ocr.deleteLensModels()
                                     1 -> ocr.deletePaddleModels()
                                     2 -> ocr.deleteMeikiModels()
+                                    3 -> ocr.deleteVocrModels()
                                 }
                             }
                             deleting = false
@@ -100,6 +101,7 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
                             0 -> ocr.triggerDownload()
                             1 -> ocr.triggerPaddleDownload()
                             2 -> ocr.triggerMeikiDownload()
+                            3 -> ocr.triggerVocrDownload()
                         }
                         selected = null
                     }
@@ -115,7 +117,7 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
             put("local", "ScreenAI")
             put("paddle", "Paddle OCR")
             put("meiki", "Meiki OCR")
-            put("vocr", "Vita VN OCR")
+            put("vocr", "VOCR")
         }
     }
 
@@ -151,7 +153,7 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
         if (BuildConfig.HAS_LOCAL_OCR) {
             val titles = listOf("ScreenAI", "Paddle OCR", "Meiki OCR")
             val items = mutableListOf<SettingsRows.Item>()
-            for (i in 0..2) {
+            for (i in 0..3) {
                 val status = statuses.getOrNull(i)
                 val stateText = when {
                     status == null -> "Checking…"
@@ -173,9 +175,8 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
             )
             add(SettingsRows.Section(title = "Models", items = items))
             if (currentEngine == "vocr") {
-                val vocrReady = ocr.isVocrDownloaded
                 add(SettingsRows.Section(
-                    title = "Vita VN OCR",
+                    title = "VOCR Settings",
                     items = listOf(
                         SettingsRows.Item.BasicDropdown(
                             value = currentTier,
@@ -185,18 +186,13 @@ fun SettingsOcrScreen(onBack: () -> Unit) {
                                 "large"  to "Large — most accurate, higher memory",
                             ),
                             title = "Model size",
-                            subtitle = if (vocrReady) "Downloaded" else "Not downloaded",
+                            subtitle = if (ocr.isVocrDownloaded) "Downloaded" else "Not downloaded",
                             onValueChanged = { tier ->
                                 prefs.vocrTier().set(tier)
                                 Di.vocrBridge.destroy()
                                 if (!ocr.isVocrDownloaded) ocr.triggerVocrDownload()
                                 refreshing++
                             },
-                        ),
-                        SettingsRows.Item.Button(
-                            title = "Download / refresh VOCR models",
-                            subtitle = "vocr.zip from chimahon-local-models v3.3",
-                            onClick = { ocr.triggerVocrDownload(force = true); refreshing++ },
                         ),
                     ),
                 ))

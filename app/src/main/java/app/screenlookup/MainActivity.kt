@@ -294,6 +294,6 @@ private fun ocrEngineLabel(engine: String): String = when (engine) {
     "local" -> "ScreenAI"
     "paddle" -> "Paddle OCR"
     "meiki" -> "Meiki OCR"
-    "vocr" -> "Vita VN OCR"
+    "vocr" -> "VOCR"
     else -> "GLens"
 }

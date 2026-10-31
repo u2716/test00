@@ -103,6 +103,7 @@ class ModelDownloader(
         installedPaddleVersion.delete()
     }
     fun deleteMeikiModels(): Boolean = deleteDir(File(context.filesDir, MEIKI_DIR)) {}
+    fun deleteVocrModels(): Boolean = deleteDir(File(context.filesDir, VOCR_DIR)) {}
 
     private fun deleteDir(dir: File, onDeleted: () -> Unit): Boolean = synchronized(ModelBundleInstaller) {
         val previous = File(dir.parentFile, ".${dir.name}.previous")

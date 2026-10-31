@@ -129,7 +129,7 @@ private val OcrEngineType.label: String
         OcrEngineType.LOCAL -> "ScreenAI"
         OcrEngineType.PADDLE -> "Paddle OCR"
         OcrEngineType.MEIKI -> "Meiki OCR"
-        OcrEngineType.VOCR -> "Vita VN OCR"
+        OcrEngineType.VOCR -> "VOCR"
     }
 
 /** Clamp bounds for the draggable control bar, in pixels. */
@@ -808,7 +808,7 @@ private fun OcrEngineIcon(
         }
         OcrEngineType.VOCR -> Box(modifier = modifier, contentAlignment = Alignment.Center) {
             Icon(Icons.Outlined.Smartphone, contentDescription = null, tint = tint)
-            Text("V", color = tint, fontSize = 10.sp, fontWeight = FontWeight.Black)
+            Text("4", color = tint, fontSize = 10.sp, fontWeight = FontWeight.Black)
         }
         OcrEngineType.MEIKI -> Box(modifier = modifier, contentAlignment = Alignment.Center) {
             Icon(
