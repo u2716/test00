@@ -29,7 +29,7 @@ class VocrEngine(
 
     private val appContext = context.applicationContext
     private val modelDir = File(appContext.filesDir, "vocr_models")
-    private val permits = Semaphore(if (Runtime.getRuntime().availableProcessors() >= 8) 2 else 1)
+    private val permits = Semaphore(INFER_PERMITS)
 
     @Volatile private var interp: VocrInterpreter? = null
     @Volatile private var initTried = false
@@ -70,8 +70,11 @@ class VocrEngine(
         }
     }
 
+    fun init(): Boolean = ensureInit() != null
+
+    fun isInitialized(): Boolean = interp != null
+
     override suspend fun recognize(bytes: ByteArray, language: OcrLanguage): List<EngineLine> {
-        require(language == OcrLanguage.JAPANESE) { "VOCR is Japanese-only, got $language" }
         permits.acquire()
         try {
             val engine = ensureInit() ?: return emptyList()
@@ -133,8 +136,19 @@ class VocrEngine(
         } finally { permits.release() }
     }
 
-    override fun close() = synchronized(this) {
-        interp?.close(); interp = null; initTried = false
+    override fun close() {
+        // Drain the permit pool first: a recognize() may be running on another
+        // dispatcher thread, and freeing the native interpreter out from under
+        // it is a use-after-free in JNI. Block until every slot is held, tear
+        // the engine down, then release.
+        repeat(INFER_PERMITS) { permits.acquire() }
+        try {
+            synchronized(this) {
+                interp?.close(); interp = null; initTried = false
+            }
+        } finally {
+            repeat(INFER_PERMITS) { permits.release() }
+        }
     }
 
     private fun bitmapToGrey(bmp: Bitmap): ByteArray {
@@ -154,5 +168,8 @@ class VocrEngine(
         return out
     }
 
-    companion object { private const val TAG = "VocrEngine" }
+    companion object {
+        private const val TAG = "VocrEngine"
+        private val INFER_PERMITS = if (Runtime.getRuntime().availableProcessors() >= 8) 2 else 1
+    }
 }

@@ -306,7 +306,7 @@ class ModelDownloader(
                 MEIKI_ZIP -> installedMeikiVersion.set(version)
                 VOCR_ZIP -> {
                     installedVocrVersion.set(version)
-                    Di.vocrBridge.destroy()
+                    Di.vocrBridge.invalidateModels()
                 }
                 else -> error("Unknown OCR model zip: $zipName")
             }
