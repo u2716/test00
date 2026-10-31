@@ -80,6 +80,7 @@ class VocrInterpreter private constructor() : Closeable {
             return inst
         }
 
+        @JvmStatic
         private external fun nativeCreate(blobPath: String, lmPath: String?, mode: Int): Long
     }
 }
