@@ -163,6 +163,15 @@ class ModelDownloader(
         )
     }
 
+    private fun requiredVocrFiles(): List<File> {
+        val root = File(context.filesDir, VOCR_DIR)
+        return listOf(
+            File(root, "textspot8_t64n8c16_w8.vtsp"),
+            File(root, "vocr_lm6_o3_1000k.vlm"),
+            File(root, "VOCR6.2_N_w8g2.vocr"),
+        )
+    }
+
     private fun requiredMeikiFiles(): List<File> {
         val root = File(context.filesDir, MEIKI_DIR)
         return listOf(
@@ -327,6 +336,7 @@ class ModelDownloader(
             LENS_DIR -> requiredLensFiles(abi)
             PADDLE_DIR -> requiredPaddleFiles(abi)
             MEIKI_DIR -> requiredMeikiFiles()
+            VOCR_DIR -> requiredVocrFiles()
             else -> error("Unknown OCR model bundle: $bundle")
         }
         ModelBundleInstaller.install(input, context.filesDir, bundle, required.map { it.relativeTo(bundleRoot).path })
