@@ -162,13 +162,31 @@ class VocrEngine(
                         }
                     }
 
+                    // If we have exact character boxes, use them to tightly wrap the text.
+                    // This eliminates the gap between the highlight and the box edge.
+                    var finalX = x
+                    var finalY = y
+                    var finalBw = bw
+                    var finalBh = bh
+                    
+                    if (chars != null && chars.isNotEmpty()) {
+                        val minX = chars.minOf { it.bbox.left } * w
+                        val maxX = chars.maxOf { it.bbox.right } * w
+                        val minY = chars.minOf { it.bbox.top } * h
+                        val maxY = chars.maxOf { it.bbox.bottom } * h
+                        finalX = minX.toInt().coerceIn(0, w - 1)
+                        finalY = minY.toInt().coerceIn(0, h - 1)
+                        finalBw = (maxX - minX).toInt().coerceAtMost(w - finalX)
+                        finalBh = (maxY - minY).toInt().coerceAtMost(h - finalY)
+                    }
+
                     lines += EngineLine(
                         text = r.text,
                         bbox = NormalizedBBox(
-                            left   = x.toDouble() / w,
-                            top    = y.toDouble() / h,
-                            right  = (x + bw).toDouble() / w,
-                            bottom = (y + bh).toDouble() / h,
+                            left   = finalX.toDouble() / w,
+                            top    = finalY.toDouble() / h,
+                            right  = (finalX + finalBw).toDouble() / w,
+                            bottom = (finalY + finalBh).toDouble() / h,
                         ),
                         writingDirection = if (isVertical) WritingDirection.TTB else WritingDirection.LTR,
                         language = OcrLanguage.JAPANESE,
