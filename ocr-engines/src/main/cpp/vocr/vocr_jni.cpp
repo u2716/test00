@@ -13,6 +13,8 @@
 #include "vocr_lines_rows.h"
 #include "vocr_charbox.h"
 #include "vocr_textspot6.h"
+#include "vocr_textspot7.h"
+#include "vocr_vertical.h"
 
 #define TAG "vocr-jni"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  TAG, __VA_ARGS__)
@@ -315,20 +317,63 @@ Java_chimahon_local_ocr_VocrInterpreter_nativeFindTextBlocks(
 
     if (rc || set.count == 0) return nullptr;
 
-    int pick = set.pick;
-    if (pick < 0) pick = 0;
-    
-    VocrTextspot6Block* block = &set.blocks[pick];
-    
+    // Separate horizontal and vertical boxes
+    VocrT7Box h_boxes[VOCR_T7_MAX_BOXES];
+    unsigned n_h = 0;
+    VocrTextspot6Box v_boxes[VOCR_T7_MAX_BOXES];
+    unsigned n_v = 0;
+
+    for (unsigned i = 0; i < set.count; i++) {
+        if (set.boxes[i].vertical) {
+            if (n_v < VOCR_T7_MAX_BOXES) v_boxes[n_v++] = set.boxes[i];
+        } else {
+            if (n_h < VOCR_T7_MAX_BOXES) {
+                h_boxes[n_h].x = set.boxes[i].x;
+                h_boxes[n_h].y = set.boxes[i].y;
+                h_boxes[n_h].w = set.boxes[i].w;
+                h_boxes[n_h].h = set.boxes[i].h;
+                h_boxes[n_h].conf = set.boxes[i].conf;
+                h_boxes[n_h].dark = set.boxes[i].dark;
+                n_h++;
+            }
+        }
+    }
+
+    // Process horizontal boxes with the author's exact pick logic: JOIN10 | EXTEND
+    VocrT7Box out_h[VOCR_T7_MAX_BOXES];
+    unsigned out_nh = 0;
+    if (n_h > 0) {
+        unsigned steps = VOCR_T7_JOIN10 | VOCR_T7_EXTEND;
+        size_t t7_need = vocr_textspot7_arena_bytes_steps(w, h, steps);
+        void* t7_arena = a16(t7_need);
+        if (t7_arena) {
+            vocr_textspot7_post(h_boxes, n_h, 0, 0, w, h, &img, steps, t7_arena, t7_need, out_h, &out_nh);
+            std::free(t7_arena);
+        } else {
+            for (unsigned i = 0; i < n_h; i++) out_h[i] = h_boxes[i];
+            out_nh = n_h;
+        }
+    }
+
+    unsigned total = out_nh + n_v;
+    if (total == 0) return nullptr;
+
     jclass intArrCls = env->FindClass("[I");
-    jobjectArray out = env->NewObjectArray(block->count, intArrCls, nullptr);
+    jobjectArray out = env->NewObjectArray(total, intArrCls, nullptr);
     
-    for (int i = 0; i < block->count; i++) {
-        VocrTextspot6Box* box = &set.boxes[block->first + i];
-        jintArray jbox = env->NewIntArray(5);
-        jint tmp[5] = { box->x, box->y, box->w, box->h, box->dark };
-        env->SetIntArrayRegion(jbox, 0, 5, tmp);
-        env->SetObjectArrayElement(out, i, jbox);
+    int idx = 0;
+    for (unsigned i = 0; i < out_nh; i++) {
+        jintArray jbox = env->NewIntArray(6);
+        jint tmp[6] = { out_h[i].x, out_h[i].y, out_h[i].w, out_h[i].h, out_h[i].dark, 0 };
+        env->SetIntArrayRegion(jbox, 0, 6, tmp);
+        env->SetObjectArrayElement(out, idx++, jbox);
+        env->DeleteLocalRef(jbox);
+    }
+    for (unsigned i = 0; i < n_v; i++) {
+        jintArray jbox = env->NewIntArray(6);
+        jint tmp[6] = { v_boxes[i].x, v_boxes[i].y, v_boxes[i].w, v_boxes[i].h, v_boxes[i].dark, 1 };
+        env->SetIntArrayRegion(jbox, 0, 6, tmp);
+        env->SetObjectArrayElement(out, idx++, jbox);
         env->DeleteLocalRef(jbox);
     }
     return out;
@@ -364,4 +409,15 @@ Java_chimahon_local_ocr_VocrInterpreter_nativeFindLines(
 extern "C" JNIEXPORT void JNICALL
 Java_chimahon_local_ocr_VocrInterpreter_nativeDestroy(JNIEnv*, jclass, jlong handle) {
     release(reinterpret_cast<VocrHandle*>(handle));
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_chimahon_local_ocr_VocrInterpreter_nativeRotateColumn(
+        JNIEnv* env, jclass, jbyteArray jSrc, jint w, jint h, jbyteArray jDst) {
+    jbyte* src = env->GetByteArrayElements(jSrc, nullptr);
+    jbyte* dst = env->GetByteArrayElements(jDst, nullptr);
+    vocr_column_rotate(reinterpret_cast<const unsigned char*>(src), w, VOCR_LINES_GREY, w, h, 
+                       reinterpret_cast<unsigned char*>(dst), h);
+    env->ReleaseByteArrayElements(jDst, dst, 0);
+    env->ReleaseByteArrayElements(jSrc, src, JNI_ABORT);
 }

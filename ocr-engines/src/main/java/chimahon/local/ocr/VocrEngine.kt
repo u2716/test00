@@ -110,11 +110,22 @@ class VocrEngine(
                     val bw = (b[2] / scale).toInt().coerceAtMost(w - x)
                     val bh = (b[3] / scale).toInt().coerceAtMost(h - y)
                     val dark = b[4] != 0
+                    val isVertical = b.size > 5 && b[5] == 1
                     
                     if (bw <= 0 || bh <= 0) continue
                     
-                    val crop = cropGrey(grey, w, x, y, bw, bh)
-                    val r = engine.recognizeLine(crop, bw, bh, invert = dark, useLm = true) ?: continue
+                    var crop = cropGrey(grey, w, x, y, bw, bh)
+                    var cw = bw
+                    var ch = bh
+                    
+                    // Rotate vertical columns 90 degrees CCW so the horizontal recognizer can read them
+                    if (isVertical) {
+                        crop = engine.rotateColumn(crop, bw, bh)
+                        cw = bh
+                        ch = bw
+                    }
+                    
+                    val r = engine.recognizeLine(crop, cw, ch, invert = dark, useLm = true) ?: continue
                     if (r.error != null) { Log.w(TAG, "line ${r.error}"); continue }
                     if (r.text.isBlank()) continue
 
@@ -128,13 +139,18 @@ class VocrEngine(
                             var cpIndex = 0
                             r.text.codePoints().forEachOrdered { cp ->
                                 val (x0, x1) = cb[cpIndex++]
+                                val l = if (isVertical) x.toDouble() / w else (x + x0).toDouble() / w
+                                val r_val = if (isVertical) (x + bw).toDouble() / w else (x + x1).toDouble() / w
+                                val t = if (isVertical) (y + x0).toDouble() / h else y.toDouble() / h
+                                val btm = if (isVertical) (y + x1).toDouble() / h else (y + bh).toDouble() / h
+                                
                                 add(EngineChar(
                                     char = String(Character.toChars(cp)).first(),
                                     bbox = NormalizedBBox(
-                                        left   = (x + x0).toDouble() / w,
-                                        top    = y.toDouble() / h,
-                                        right  = (x + x1).toDouble() / w,
-                                        bottom = (y + bh).toDouble() / h,
+                                        left   = l,
+                                        top    = t,
+                                        right  = r_val,
+                                        bottom = btm,
                                     ),
                                     conf = r.confMean,
                                 ))
@@ -150,7 +166,7 @@ class VocrEngine(
                             right  = (x + bw).toDouble() / w,
                             bottom = (y + bh).toDouble() / h,
                         ),
-                        writingDirection = WritingDirection.LTR,
+                        writingDirection = if (isVertical) WritingDirection.TTB else WritingDirection.LTR,
                         language = OcrLanguage.JAPANESE,
                         chars = chars,
                     )

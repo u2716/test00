@@ -23,6 +23,12 @@ class VocrInterpreter private constructor() : Closeable {
         return nativeFindTextBlocks(handle, grey, w, h)?.toList()
     }
 
+    fun rotateColumn(grey: ByteArray, w: Int, h: Int): ByteArray {
+        val dst = ByteArray(w * h)
+        nativeRotateColumn(grey, w, h, dst)
+        return dst
+    }
+
     fun recognizeLine(grey: ByteArray, w: Int, h: Int, invert: Boolean, useLm: Boolean): VocrLineResult? {
         if (handle == 0L) return null
         val raw = nativeRecognizeLine(handle, grey, w, h, invert, useLm) ?: return null
@@ -89,5 +95,7 @@ class VocrInterpreter private constructor() : Closeable {
         private external fun nativeCreate(blobPath: String, lmPath: String?, spotterPath: String?, mode: Int): Long
         @JvmStatic
         private external fun nativeFindTextBlocks(handle: Long, grey: ByteArray, w: Int, h: Int): Array<IntArray>?
+        @JvmStatic
+        private external fun nativeRotateColumn(src: ByteArray, w: Int, h: Int, dst: ByteArray)
     }
 }

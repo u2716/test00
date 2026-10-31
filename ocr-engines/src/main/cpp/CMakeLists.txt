@@ -71,6 +71,9 @@ add_library(vocr STATIC
     ${VOCR_DIR}/vocr_lm.c
     ${VOCR_DIR}/vocr_lines.c
     ${VOCR_DIR}/vocr_lines_rows.c
+    ${VOCR_DIR}/vocr_lines_refine.c
+    ${VOCR_DIR}/vocr_textspot7.c
+    ${VOCR_DIR}/vocr_vertical.c
     ${VOCR_DIR}/vocr_charbox.c
     ${VOCR_DIR}/vocr_post.c
 )
