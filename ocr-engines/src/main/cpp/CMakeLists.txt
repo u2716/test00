@@ -85,7 +85,7 @@ if(ANDROID_ABI STREQUAL "armeabi-v7a")
     target_compile_options(vocr PRIVATE -mfpu=neon)
 endif()
 
-add_library(vocr_jni SHARED ${VOCR_DIR}/vocr_jni.cpp ${VOCR_DIR}/vocr_textspot.c)
+add_library(vocr_jni SHARED ${VOCR_DIR}/vocr_jni.cpp ${VOCR_DIR}/vocr_textspot.c ${VOCR_DIR}/vocr_textspot6.c)
 target_link_libraries(vocr_jni PRIVATE vocr android log m)
 target_link_options(vocr_jni PRIVATE -Wl,--gc-sections -s)
 

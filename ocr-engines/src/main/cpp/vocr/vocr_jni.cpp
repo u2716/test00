@@ -12,7 +12,7 @@
 #include "vocr_lines.h"
 #include "vocr_lines_rows.h"
 #include "vocr_charbox.h"
-#include "vocr_textspot.h"
+#include "vocr_textspot6.h"
 
 #define TAG "vocr-jni"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  TAG, __VA_ARGS__)
@@ -36,7 +36,7 @@ struct VocrHandle {
     vocr_ctx   ctx{};
     void*      arena = nullptr; size_t arena_bytes = 0;
     void*      spotter_blob = nullptr; size_t spotter_blob_bytes = 0;
-    vocr_textspot spotter{};
+    vocr_textspot6 spotter{};
 
     bool       has_lm = false;
     void*      lm_blob = nullptr; size_t lm_blob_bytes = 0;
@@ -110,7 +110,7 @@ Java_chimahon_local_ocr_VocrInterpreter_nativeCreate(
     if (jSpotterPath != nullptr) {
         const char* sp = env->GetStringUTFChars(jSpotterPath, nullptr);
         if (read_file(sp, &h->spotter_blob, &h->spotter_blob_bytes, err, sizeof err)) {
-            int src = vocr_textspot_load(&h->spotter, h->spotter_blob, h->spotter_blob_bytes);
+            int src = vocr_textspot6_load(&h->spotter, h->spotter_blob, h->spotter_blob_bytes);
             if (src) { LOGE("vocr_textspot_load: %d", src); std::free(h->spotter_blob); h->spotter_blob = nullptr; }
         } else {
             LOGE("%s", err);
@@ -304,12 +304,12 @@ Java_chimahon_local_ocr_VocrInterpreter_nativeFindTextBlocks(
     img.pixels = reinterpret_cast<const unsigned char*>(px);
     img.width = w; img.height = h; img.stride = w; img.bpp = VOCR_LINES_GREY;
 
-    size_t need = vocr_textspot_arena_bytes(&vh->spotter, w, h);
+    size_t need = vocr_textspot6_arena_bytes(&vh->spotter, w, h);
     void* arena = a16(need);
     if (!arena) { env->ReleaseByteArrayElements(jGrey, px, JNI_ABORT); return nullptr; }
-    VocrTextspotSet set = {};
+    VocrTextspot6Set set = {};
     
-    int rc = vocr_textspot_find(&vh->spotter, &img, 0, arena, need, &set);
+    int rc = vocr_textspot6_find(&vh->spotter, &img, 0, arena, need, &set);
     std::free(arena);
     env->ReleaseByteArrayElements(jGrey, px, JNI_ABORT);
 
@@ -318,13 +318,13 @@ Java_chimahon_local_ocr_VocrInterpreter_nativeFindTextBlocks(
     int pick = set.pick;
     if (pick < 0) pick = 0;
     
-    VocrTextspotBlock* block = &set.blocks[pick];
+    VocrTextspot6Block* block = &set.blocks[pick];
     
     jclass intArrCls = env->FindClass("[I");
     jobjectArray out = env->NewObjectArray(block->count, intArrCls, nullptr);
     
     for (int i = 0; i < block->count; i++) {
-        VocrTextspotBox* box = &set.boxes[block->first + i];
+        VocrTextspot6Box* box = &set.boxes[block->first + i];
         jintArray jbox = env->NewIntArray(5);
         jint tmp[5] = { box->x, box->y, box->w, box->h, box->dark };
         env->SetIntArrayRegion(jbox, 0, 5, tmp);
