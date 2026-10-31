@@ -364,7 +364,7 @@ Java_chimahon_local_ocr_VocrInterpreter_nativeFindTextBlocks(
     int idx = 0;
     for (unsigned i = 0; i < out_nh; i++) {
         jintArray jbox = env->NewIntArray(6);
-        jint tmp[6] = { out_h[i].x, out_h[i].y, out_h[i].w, out_h[i].h, out_h[i].dark, 0 };
+        jint tmp[6] = { out_h[i].x, out_h[i].y, out_h[i].w, out_h[i].h, static_cast<jint>(out_h[i].dark), 0 };
         env->SetIntArrayRegion(jbox, 0, 6, tmp);
         env->SetObjectArrayElement(out, idx++, jbox);
         env->DeleteLocalRef(jbox);
