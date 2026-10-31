@@ -169,6 +169,20 @@ Java_chimahon_local_ocr_VocrInterpreter_nativeCreate(
 //   - LM text differs: try vocr_charbox_align to map LM chars onto greedy charboxes
 //     (only if the exact signature exists in vocr_charbox.h; see the CALL ALIGN block)
 //   - any insertion, or align failed: return zero exact boxes → Kotlin falls back to uniform
+
+static unsigned decode_utf8(const char* s, uint32_t* out, unsigned max_len) {
+    unsigned n = 0;
+    while (*s && n < max_len) {
+        unsigned char c = *s++;
+        if (c < 0x80) out[n++] = c;
+        else if ((c & 0xE0) == 0xC0) { if (!*s) break; out[n++] = ((c & 0x1F) << 6) | (*s++ & 0x3F); }
+        else if ((c & 0xF0) == 0xE0) { if (!*s || !*(s+1)) break; out[n++] = ((c & 0x0F) << 12) | ((*s++ & 0x3F) << 6) | (*s++ & 0x3F); }
+        else if ((c & 0xF8) == 0xF0) { if (!*s || !*(s+1) || !*(s+2)) break; out[n++] = ((c & 0x07) << 18) | ((*s++ & 0x3F) << 12) | ((*s++ & 0x3F) << 6) | (*s++ & 0x3F); }
+        else out[n++] = 0xFFFD;
+    }
+    return n;
+}
+
 struct CharOut { float x0, x1; };   // x0 == -1.0f means "no exact box for this char"
 
 static std::vector<CharOut> build_charboxes(VocrHandle* h, const vocr_image& img,
@@ -212,15 +226,19 @@ static std::vector<CharOut> build_charboxes(VocrHandle* h, const vocr_image& img
     //
     // Uncomment once the signature is confirmed:
 
-    // unsigned m = static_cast<unsigned>(std::strlen(final_text));
-    // if (vocr_charbox_align(h->greedy, ngreedy, final_text, m, h->align_map) == 0) {
-    //     out.reserve(m);
-    //     for (unsigned j = 0; j < m; j++) {
-    //         int16_t mi = h->align_map[j];
-    //         if (mi < 0 || static_cast<unsigned>(mi) >= ngreedy) return {};   // insertion → uniform
-    //         out.push_back({ h->charbox[mi].x0 / 16.0f, h->charbox[mi].x1 / 16.0f });
-    //     }
-    // }
+    uint32_t src_cps[kTextCap], dst_cps[kTextCap];
+    unsigned n_src = decode_utf8(h->greedy, src_cps, kTextCap);
+    unsigned n_dst = decode_utf8(final_text, dst_cps, kTextCap);
+    if (vocr_charbox_align(src_cps, n_src, dst_cps, n_dst, h->align_map) == 0) {
+        out.reserve(n_dst);
+        bool ok = true;
+        for (unsigned j = 0; j < n_dst; j++) {
+            int16_t mi = h->align_map[j];
+            if (mi < 0 || static_cast<unsigned>(mi) >= ngreedy) { ok = false; break; }
+            out.push_back({ h->charbox[mi].x0 / 16.0f, h->charbox[mi].x1 / 16.0f });
+        }
+        if (ok) return out;
+    }
     // ──────────────────────────────────────────────────────────────────────────
 
     return out;   // empty if align is unavailable → Kotlin falls back to uniform

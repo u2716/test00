@@ -111,6 +111,10 @@ class VocrEngine(
                     val bh = (b[3] / scale).toInt().coerceAtMost(h - y)
                     val dark = b[4] != 0
                     val isVertical = b.size > 5 && b[5] == 1
+                    val conf = if (b.size > 6) b[6] else 100
+                    
+                    // Filter out low-confidence hallucinations (like ceiling lights or window frames)
+                    if (conf < 30) continue
                     
                     if (bw <= 0 || bh <= 0) continue
                     
