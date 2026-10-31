@@ -20,6 +20,7 @@ enum class OcrEngineType {
             "local" -> LOCAL
             "paddle" -> PADDLE
             "meiki" -> MEIKI
+            "vocr" -> VOCR
             else -> CLOUD
         }
     }

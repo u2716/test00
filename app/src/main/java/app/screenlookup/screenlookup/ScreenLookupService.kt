@@ -151,6 +151,7 @@ class ScreenLookupService : Service() {
         runCatching { app.screenlookup.Di.localOcrBridge.destroy() }
         runCatching { app.screenlookup.Di.paddleOcrBridge.destroy() }
         runCatching { app.screenlookup.Di.meikiBridge.destroy() }
+        runCatching { app.screenlookup.Di.vocrBridge.destroy() }
         super.onDestroy()
     }
 

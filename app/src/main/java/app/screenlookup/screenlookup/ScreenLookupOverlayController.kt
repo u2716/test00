@@ -485,6 +485,7 @@ internal fun ScreenLookupOverlay(
                     Di.localOcrBridge.destroy()
                     Di.paddleOcrBridge.destroy()
                     Di.meikiBridge.destroy()
+                    Di.vocrBridge.destroy()
 
                     ocrEnginePref.set(selected.preferenceKey)
                     when (selected) {
